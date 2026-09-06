@@ -1,0 +1,16 @@
+# Facebook Graph API Configuration
+# Get your Page ID from: Facebook Page -> About -> Page transparency
+fb.page.id=YOUR_FACEBOOK_PAGE_ID
+
+# Generate a Page Access Token with permissions: pages_read_engagement, pages_read_user_content
+# from Meta Developer Portal (https://developers.facebook.com/tools/explorer/)
+fb.access.token=YOUR_PAGE_ACCESS_TOKEN
+
+# Facebook Graph API version (default v20.0)
+fb.api.version=v20.0
+
+# Set to true to test locally using mock data (data/sample_feed.json) without calling Facebook
+app.offline.mode=true
+
+# Negative sentiment threshold (default -0.05). Any compound score <= this will be flagged
+app.negative.threshold=-0.05
