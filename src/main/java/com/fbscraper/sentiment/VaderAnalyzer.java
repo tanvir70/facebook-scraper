@@ -12,6 +12,18 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Rule-based sentiment analysis engine based on VADER (Valence Aware Dictionary and sEntiment Reasoner).
+ * <p>
+ * Specifically tailored for social media sentiment, handling:
+ * <ul>
+ *   <li>Lexicon valence scoring (from -4.0 to +4.0).</li>
+ *   <li>ALL CAPS intensity modification.</li>
+ *   <li>Punctuation amplification (e.g. exclamation marks "!").</li>
+ *   <li>Negation detection within a 3-token lookbehind window ("not", "never", etc.).</li>
+ *   <li>Booster word incrementation and dampening ("extremely", "hardly", etc.).</li>
+ * </ul>
+ */
 public class VaderAnalyzer {
 
     private static final double ALPHA = 15.0; // Normalization constant
@@ -26,12 +38,23 @@ public class VaderAnalyzer {
 
     private static final Pattern WORD_PATTERN = Pattern.compile("[\\p{L}\\p{N}']+|[\\S]");
 
+    /**
+     * Constructs a {@code VaderAnalyzer} with a custom lexicon dictionary.
+     *
+     * @param lexicon mapping of lowercased tokens to their valence scores
+     */
     public VaderAnalyzer(Map<String, Double> lexicon) {
         this.lexicon = Objects.requireNonNull(lexicon, "lexicon cannot be null");
         this.boosterDict = initBoosterDict();
         this.negationWords = initNegationWords();
     }
 
+    /**
+     * Factory method that initializes a {@code VaderAnalyzer} by reading {@code vader_lexicon.txt}
+     * from the application classpath.
+     *
+     * @return an initialized {@link VaderAnalyzer} instance
+     */
     public static VaderAnalyzer createDefault() {
         Map<String, Double> lexicon = new HashMap<>();
         try (InputStream in = VaderAnalyzer.class.getClassLoader().getResourceAsStream("vader_lexicon.txt")) {
@@ -60,6 +83,13 @@ public class VaderAnalyzer {
         return new VaderAnalyzer(lexicon);
     }
 
+    /**
+     * Analyzes the sentiment of a text string and computes its compound score,
+     * positive/neutral/negative proportions, and categorical sentiment level.
+     *
+     * @param text the input message to evaluate
+     * @return a {@link SentimentScore} representing the evaluated sentiment
+     */
     public SentimentScore analyze(String text) {
         if (text == null || text.trim().isEmpty()) {
             return new SentimentScore(0.0, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL);

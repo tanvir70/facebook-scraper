@@ -22,6 +22,12 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Client for fetching and parsing Facebook Page feed posts and nested comments.
+ * <p>
+ * Supports both live calls to the Meta Graph API via {@link HttpClient} and
+ * offline mock execution using a local JSON feed file.
+ */
 public class FacebookClient {
 
     private final AppConfig config;
@@ -29,14 +35,32 @@ public class FacebookClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Constructs a {@code FacebookClient} using the default sample feed path and default HTTP client.
+     *
+     * @param config the application configuration
+     */
     public FacebookClient(AppConfig config) {
         this(config, Path.of("data/sample_feed.json"), HttpClient.newHttpClient());
     }
 
+    /**
+     * Constructs a {@code FacebookClient} with a custom sample feed path and default HTTP client.
+     *
+     * @param config         the application configuration
+     * @param sampleDataPath path to the sample JSON file
+     */
     public FacebookClient(AppConfig config, Path sampleDataPath) {
         this(config, sampleDataPath, HttpClient.newHttpClient());
     }
 
+    /**
+     * Full dependency-injection constructor for testing and customization.
+     *
+     * @param config         the application configuration
+     * @param sampleDataPath path to the sample JSON file
+     * @param httpClient     the {@link HttpClient} instance for live API calls
+     */
     public FacebookClient(AppConfig config, Path sampleDataPath, HttpClient httpClient) {
         this.config = config;
         this.sampleDataPath = sampleDataPath;
@@ -45,6 +69,14 @@ public class FacebookClient {
         this.objectMapper.registerModule(new JavaTimeModule());
     }
 
+    /**
+     * Fetches the page feed (posts and nested comments).
+     * <p>
+     * If {@link AppConfig#offlineMode()} is true or if required credentials are missing,
+     * this falls back to loading the local sample feed file.
+     *
+     * @return a list of parsed {@link FacebookPost} instances
+     */
     public List<FacebookPost> fetchPageFeed() {
         if (config.offlineMode()) {
             System.out.println("[FacebookClient] Running in OFFLINE / MOCK mode. Loading sample feed...");
@@ -83,6 +115,12 @@ public class FacebookClient {
         }
     }
 
+    /**
+     * Parses Facebook Graph API JSON feed response into a list of {@link FacebookPost} domain objects.
+     *
+     * @param json raw JSON string from Facebook Graph API or mock data
+     * @return a list of parsed {@link FacebookPost} instances
+     */
     public List<FacebookPost> parseFeedJson(String json) {
         List<FacebookPost> posts = new ArrayList<>();
         try {

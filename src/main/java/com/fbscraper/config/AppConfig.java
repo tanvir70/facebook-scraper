@@ -7,6 +7,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
+/**
+ * Immutable application configuration record.
+ * <p>
+ * Encapsulates Facebook Graph API credentials, versioning, mock offline mode,
+ * and sentiment threshold thresholds.
+ *
+ * @param pageId            Facebook Page ID to scrape
+ * @param accessToken       Facebook Page/User Access Token with required permissions
+ * @param apiVersion        Facebook Graph API version (e.g. "v20.0")
+ * @param offlineMode       true to use local mock data instead of live network calls
+ * @param negativeThreshold Compound score threshold below which comments are flagged as negative
+ */
 public record AppConfig(
         String pageId,
         String accessToken,
@@ -18,6 +30,11 @@ public record AppConfig(
     public static final boolean DEFAULT_OFFLINE_MODE = true;
     public static final double DEFAULT_NEGATIVE_THRESHOLD = -0.05;
 
+    /**
+     * Loads configuration from local config.properties, classpath, or environment variables.
+     *
+     * @return an initialized {@link AppConfig} instance
+     */
     public static AppConfig load() {
         Properties props = new Properties();
 
@@ -41,6 +58,13 @@ public record AppConfig(
         return fromProperties(props);
     }
 
+    /**
+     * Resolves an {@link AppConfig} instance by reading from the supplied properties
+     * with fallback to system environment variables and built-in defaults.
+     *
+     * @param props the loaded {@link Properties} object
+     * @return a configured {@link AppConfig} instance
+     */
     public static AppConfig fromProperties(Properties props) {
         String pageId = getPropOrEnv(props, "fb.page.id", "FB_PAGE_ID", "");
         String accessToken = getPropOrEnv(props, "fb.access.token", "FB_ACCESS_TOKEN", "");

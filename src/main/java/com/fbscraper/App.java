@@ -13,8 +13,25 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Main application entry point for the Facebook Scraper.
+ * <p>
+ * Orchestrates the full pipeline:
+ * <ol>
+ *   <li>Loads configuration from properties or environment variables ({@link AppConfig}).</li>
+ *   <li>Retrieves Facebook posts and comments via Graph API or offline mock ({@link FacebookClient}).</li>
+ *   <li>Runs lexicon-based sentiment analysis on all comments ({@link VaderAnalyzer}).</li>
+ *   <li>Calculates negative sentiment statistics and prints a console summary.</li>
+ *   <li>Generates an interactive HTML dashboard ({@link HtmlDashboardGenerator}).</li>
+ * </ol>
+ */
 public class App {
 
+    /**
+     * Executes the scraper and sentiment analysis pipeline.
+     *
+     * @param args command-line arguments (not currently required)
+     */
     public static void main(String[] args) {
         System.out.println("==================================================");
         System.out.println("                 Facebook Scraper                 ");

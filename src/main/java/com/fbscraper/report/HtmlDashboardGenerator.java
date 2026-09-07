@@ -11,12 +11,31 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * Generates an interactive, self-contained HTML5/CSS3 dashboard highlighting
+ * customer sentiment, KPI statistics, and negative feedback.
+ * <p>
+ * Features:
+ * <ul>
+ *   <li>Dark-themed modern CSS styling.</li>
+ *   <li>Visual KPI stat cards (Total Posts, Total Comments, Negative/Positive Feedback Rates).</li>
+ *   <li>Doughnut chart powered by Chart.js.</li>
+ *   <li>Interactive table of flagged negative feedback with real-time keyword search.</li>
+ * </ul>
+ */
 public class HtmlDashboardGenerator {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
 
+    /**
+     * Generates a standalone HTML dashboard report and writes it to the specified output file path.
+     *
+     * @param posts            the list of scraped Facebook posts
+     * @param analyzedComments the list of sentiment-analyzed comments
+     * @param outputPath       the destination file path (e.g. output/dashboard.html)
+     */
     public void generateReport(List<FacebookPost> posts, List<AnalyzedComment> analyzedComments, Path outputPath) {
         long totalPosts = posts.size();
         long totalComments = analyzedComments.size();
