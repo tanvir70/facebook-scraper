@@ -15,7 +15,7 @@ class AppConfigTest {
 
         assertThat(config.pageId()).isEmpty();
         assertThat(config.accessToken()).isEmpty();
-        assertThat(config.apiVersion()).isEqualTo("v20.0");
+        assertThat(config.apiVersion()).isEqualTo("v26.0");
         assertThat(config.offlineMode()).isTrue(); // Default to offline mode for safety
         assertThat(config.negativeThreshold()).isEqualTo(-0.05);
     }

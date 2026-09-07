@@ -69,8 +69,8 @@ fb.page.id=123456789012345
 # Your generated Page Access Token
 fb.access.token=EAAB...your_token_here...
 
-# API version (defaults to v20.0)
-fb.api.version=v20.0
+# API version (defaults to v26.0)
+fb.api.version=v26.0
 
 # Set offline mode to false for live scraping
 app.offline.mode=false

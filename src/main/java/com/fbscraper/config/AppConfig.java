@@ -15,7 +15,7 @@ import java.util.Properties;
  *
  * @param pageId            Facebook Page ID to scrape
  * @param accessToken       Facebook Page/User Access Token with required permissions
- * @param apiVersion        Facebook Graph API version (e.g. "v20.0")
+ * @param apiVersion        Facebook Graph API version (e.g. "v26.0")
  * @param offlineMode       true to use local mock data instead of live network calls
  * @param negativeThreshold Compound score threshold below which comments are flagged as negative
  */
@@ -26,7 +26,7 @@ public record AppConfig(
         boolean offlineMode,
         double negativeThreshold
 ) {
-    public static final String DEFAULT_API_VERSION = "v20.0";
+    public static final String DEFAULT_API_VERSION = "v26.0";
     public static final boolean DEFAULT_OFFLINE_MODE = true;
     public static final double DEFAULT_NEGATIVE_THRESHOLD = -0.05;
 

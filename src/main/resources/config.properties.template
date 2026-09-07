@@ -6,8 +6,8 @@ fb.page.id=YOUR_FACEBOOK_PAGE_ID
 # from Meta Developer Portal (https://developers.facebook.com/tools/explorer/)
 fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 
-# Facebook Graph API version (default v20.0)
-fb.api.version=v20.0
+# Facebook Graph API version (default v26.0)
+fb.api.version=v26.0
 
 # Set to true to test locally using mock data (data/sample_feed.json) without calling Facebook
 app.offline.mode=true

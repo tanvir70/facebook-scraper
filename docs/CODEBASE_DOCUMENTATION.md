@@ -54,12 +54,12 @@ Represents the immutable runtime configuration of the application.
 #### Fields:
 - `pageId`: The numeric Facebook Page ID to scrape.
 - `accessToken`: The Meta User/Page Access Token with required permissions.
-- `apiVersion`: Facebook Graph API version (default `"v20.0"`).
+- `apiVersion`: Facebook Graph API version (default `"v26.0"`).
 - `offlineMode`: When `true`, uses mock sample feed rather than making live network calls.
 - `negativeThreshold`: Compound sentiment score cut-off (default `-0.05`). Any score $\le -0.05$ is flagged as negative.
 
 #### Constants:
-- `DEFAULT_API_VERSION = "v20.0"`: Standard supported Graph API version.
+- `DEFAULT_API_VERSION = "v26.0"`: Standard supported Graph API version.
 - `DEFAULT_OFFLINE_MODE = true`: Safe fallback so the app works without API credentials.
 - `DEFAULT_NEGATIVE_THRESHOLD = -0.05`: VADER standard threshold for negative sentiment.
 
@@ -322,7 +322,7 @@ fb.page.id=YOUR_PAGE_ID
 fb.access.token=YOUR_ACCESS_TOKEN
 
 # Facebook Graph API Version
-fb.api.version=v20.0
+fb.api.version=v26.0
 
 # Set to 'true' for offline mock testing using data/sample_feed.json
 app.offline.mode=true
