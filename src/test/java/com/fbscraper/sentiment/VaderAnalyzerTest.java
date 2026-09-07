@@ -1,7 +1,7 @@
-package com.fbanalyzer.sentiment;
+package com.fbscraper.sentiment;
 
-import com.fbanalyzer.model.SentimentLevel;
-import com.fbanalyzer.model.SentimentScore;
+import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.model.SentimentScore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

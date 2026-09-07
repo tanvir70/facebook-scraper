@@ -1,8 +1,8 @@
-package com.fbanalyzer.report;
+package com.fbscraper.report;
 
-import com.fbanalyzer.model.AnalyzedComment;
-import com.fbanalyzer.model.FacebookPost;
-import com.fbanalyzer.model.SentimentLevel;
+import com.fbscraper.model.AnalyzedComment;
+import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.SentimentLevel;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,7 +49,7 @@ public class HtmlDashboardGenerator {
             .append("<head>\n")
             .append("  <meta charset=\"UTF-8\">\n")
             .append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
-            .append("  <title>Facebook Page Sentiment Analysis Dashboard</title>\n")
+            .append("  <title>Facebook Scraper Dashboard</title>\n")
             .append("  <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>\n")
             .append("  <style>\n")
             .append("    :root {\n")
@@ -95,7 +95,7 @@ public class HtmlDashboardGenerator {
             .append("<div class=\"container\">\n")
             .append("  <header>\n")
             .append("    <div>\n")
-            .append("      <h1>Facebook Sentiment Dashboard</h1>\n")
+            .append("      <h1>Facebook Scraper Dashboard</h1>\n")
             .append("      <p class=\"subtitle\">Generated on: ").append(DATE_FMT.format(java.time.Instant.now())).append("</p>\n")
             .append("    </div>\n")
             .append("    <div>\n")

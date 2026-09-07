@@ -1,7 +1,7 @@
-package com.fbanalyzer.sentiment;
+package com.fbscraper.sentiment;
 
-import com.fbanalyzer.model.SentimentLevel;
-import com.fbanalyzer.model.SentimentScore;
+import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.model.SentimentScore;
 
 import java.io.BufferedReader;
 import java.io.IOException;

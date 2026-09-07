@@ -1,6 +1,6 @@
-# Facebook Page Negative Sentiment Analyzer
+# Facebook Scraper
 
-A modular Java 21 application designed to fetch posts and comments from your Facebook Page using the official Facebook Graph API, evaluate sentiment locally using an embedded VADER (Valence Aware Dictionary and sEntiment Reasoner) engine, and generate a standalone interactive HTML dashboard highlighting customer complaints and negative feedback.
+A modular Java 21 application designed to fetch posts and comments from Facebook (Page or Graph API), evaluate sentiment locally using an embedded VADER (Valence Aware Dictionary and sEntiment Reasoner) engine, and generate a standalone interactive HTML dashboard highlighting customer feedback and sentiment insights.
 
 ---
 
@@ -28,7 +28,7 @@ You can run the application immediately out-of-the-box using the included sample
 
 # 2. Package and run the application
 ./mvnw package
-java -jar target/facebook-sentiment-analyzer-1.0.0-SNAPSHOT.jar
+java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
 ```
 
 Once executed, open the generated dashboard in your browser:
@@ -81,7 +81,7 @@ app.negative.threshold=-0.05
 
 Now re-run the application:
 ```bash
-java -jar target/facebook-sentiment-analyzer-1.0.0-SNAPSHOT.jar
+java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
 ```
 
 ---
@@ -92,16 +92,16 @@ The project is linked to `/home/tanvirar/IdeaProjects/facebook-sentiment-analyze
 
 1. Open **IntelliJ IDEA**.
 2. Click **Open** (or **File** → **Open...**).
-3. Navigate to `/home/tanvirar/IdeaProjects/facebook-sentiment-analyzer` (or `/home/tanvirar/Documents/antigravity/hopeful-bose`).
+3. Navigate to the project directory.
 4. IntelliJ will automatically recognize the `pom.xml` and configure your Java 21 SDK.
-5. You can directly run [`com.fbanalyzer.App.main()`](src/main/java/com/fbanalyzer/App.java) with a single click.
+5. You can directly run [`com.fbscraper.App.main()`](src/main/java/com/fbscraper/App.java) with a single click.
 
 ---
 
 ## Project Structure
 
 ```
-facebook-sentiment-analyzer/
+facebook-scraper/
 ├── pom.xml                                   # Maven build configuration (Java 21)
 ├── README.md                                 # Documentation & usage guide
 ├── config.properties.template                # Configuration template
@@ -109,7 +109,7 @@ facebook-sentiment-analyzer/
 │   └── sample_feed.json                      # Realistic mock feed for local testing
 ├── src/
 │   ├── main/
-│   │   ├── java/com/fbanalyzer/
+│   │   ├── java/com/fbscraper/
 │   │   │   ├── App.java                      # CLI coordinator & pipeline runner
 │   │   │   ├── config/
 │   │   │   │   └── AppConfig.java            # Config loader with env fallbacks
@@ -128,7 +128,7 @@ facebook-sentiment-analyzer/
 │   │   └── resources/
 │   │       └── vader_lexicon.txt             # 7,500+ token sentiment lexicon
 │   └── test/
-│       └── java/com/fbanalyzer/
+│       └── java/com/fbscraper/
 │           ├── AppE2ETest.java               # End-to-end pipeline test
 │           ├── client/FacebookClientTest.java
 │           ├── config/AppConfigTest.java

@@ -1,4 +1,4 @@
-package com.fbanalyzer.config;
+package com.fbscraper.config;
 
 import org.junit.jupiter.api.Test;
 

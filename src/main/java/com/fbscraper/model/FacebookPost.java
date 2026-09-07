@@ -1,4 +1,4 @@
-package com.fbanalyzer.model;
+package com.fbscraper.model;
 
 import java.time.Instant;
 import java.util.List;

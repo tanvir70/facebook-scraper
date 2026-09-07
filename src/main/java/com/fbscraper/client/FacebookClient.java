@@ -1,11 +1,11 @@
-package com.fbanalyzer.client;
+package com.fbscraper.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fbanalyzer.config.AppConfig;
-import com.fbanalyzer.model.FacebookComment;
-import com.fbanalyzer.model.FacebookPost;
+import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookPost;
 
 import java.io.IOException;
 import java.net.URI;

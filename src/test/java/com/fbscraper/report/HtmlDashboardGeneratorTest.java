@@ -1,6 +1,6 @@
-package com.fbanalyzer.report;
+package com.fbscraper.report;
 
-import com.fbanalyzer.model.*;
+import com.fbscraper.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -36,7 +36,7 @@ class HtmlDashboardGeneratorTest {
         assertThat(Files.exists(reportFile)).isTrue();
         String html = Files.readString(reportFile);
 
-        assertThat(html).contains("Facebook Page Sentiment Analysis Dashboard");
+        assertThat(html).contains("Facebook Scraper Dashboard");
         assertThat(html).contains("Terrible app, crashes constantly!");
         assertThat(html).contains("CRITICAL");
         assertThat(html).contains("chart.js");

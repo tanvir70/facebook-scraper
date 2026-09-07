@@ -1,7 +1,7 @@
-package com.fbanalyzer.client;
+package com.fbscraper.client;
 
-import com.fbanalyzer.config.AppConfig;
-import com.fbanalyzer.model.FacebookPost;
+import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.FacebookPost;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;

@@ -1,13 +1,13 @@
-package com.fbanalyzer;
+package com.fbscraper;
 
-import com.fbanalyzer.client.FacebookClient;
-import com.fbanalyzer.config.AppConfig;
-import com.fbanalyzer.model.AnalyzedComment;
-import com.fbanalyzer.model.FacebookComment;
-import com.fbanalyzer.model.FacebookPost;
-import com.fbanalyzer.model.SentimentScore;
-import com.fbanalyzer.report.HtmlDashboardGenerator;
-import com.fbanalyzer.sentiment.VaderAnalyzer;
+import com.fbscraper.client.FacebookClient;
+import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.AnalyzedComment;
+import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.SentimentScore;
+import com.fbscraper.report.HtmlDashboardGenerator;
+import com.fbscraper.sentiment.VaderAnalyzer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ public class App {
 
     public static void main(String[] args) {
         System.out.println("==================================================");
-        System.out.println("   Facebook Page Negative Sentiment Analyzer     ");
+        System.out.println("                 Facebook Scraper                 ");
         System.out.println("==================================================");
 
         // 1. Load Configuration

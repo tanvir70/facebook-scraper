@@ -1,4 +1,4 @@
-package com.fbanalyzer;
+package com.fbscraper;
 
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +19,7 @@ class AppE2ETest {
 
         try {
             String content = Files.readString(dashboard);
-            assertThat(content).contains("Facebook Sentiment Dashboard");
+            assertThat(content).contains("Facebook Scraper Dashboard");
             assertThat(content).contains("This update is HORRIBLE!");
             assertThat(content).contains("Worst customer support ever");
             assertThat(content).contains("CRITICAL");

@@ -1,4 +1,4 @@
-package com.fbanalyzer.config;
+package com.fbscraper.config;
 
 import java.io.FileInputStream;
 import java.io.IOException;

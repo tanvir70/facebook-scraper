@@ -1,4 +1,4 @@
-package com.fbanalyzer.model;
+package com.fbscraper.model;
 
 public enum SentimentLevel {
     CRITICAL_NEGATIVE,
