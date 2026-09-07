@@ -13,7 +13,7 @@ class FacebookClientTest {
 
     @Test
     void shouldLoadAndParseSampleFeedInOfflineMode() {
-        AppConfig config = new AppConfig("", "", "v20.0", true, -0.05);
+        AppConfig config = new AppConfig("", "", "v26.0", true, -0.05);
         FacebookClient client = new FacebookClient(config, Path.of("data/sample_feed.json"));
 
         List<FacebookPost> posts = client.fetchPageFeed();
@@ -58,7 +58,7 @@ class FacebookClientTest {
         }
         """;
 
-        FacebookClient client = new FacebookClient(new AppConfig("", "", "v20.0", true, -0.05));
+        FacebookClient client = new FacebookClient(new AppConfig("", "", "v26.0", true, -0.05));
         List<FacebookPost> posts = client.parseFeedJson(json);
 
         assertThat(posts).hasSize(1);

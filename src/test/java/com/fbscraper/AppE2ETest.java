@@ -1,37 +1,28 @@
 package com.fbscraper;
 
+import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.SyncResult;
+import com.fbscraper.service.SentimentSyncService;
 import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AppE2ETest {
 
     @Test
-    void shouldExecuteMainPipelineAndGenerateDashboard() {
-        // Run main with explicit offline test mode
-        App.main(new String[]{"--offline"});
+    void shouldFetchAndAnalyzeTheOfflineFeed() {
+        AppConfig config = new AppConfig("", "", "v26.0", true, -0.05);
 
-        Path dashboard = Path.of("output/dashboard.html");
-        Path jsonPath = Path.of("output/comments.json");
+        SyncResult result = new SentimentSyncService(config).sync();
 
-        assertThat(Files.exists(dashboard)).isTrue();
-        assertThat(Files.exists(jsonPath)).isTrue();
-
-        try {
-            String content = Files.readString(dashboard);
-            assertThat(content).contains("Facebook Scraper Dashboard");
-            assertThat(content).contains("This update is HORRIBLE!");
-            assertThat(content).contains("Worst customer support ever");
-            assertThat(content).contains("CRITICAL");
-
-            String json = Files.readString(jsonPath);
-            assertThat(json).contains("This update is HORRIBLE!");
-            assertThat(json).contains("compound");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        assertThat(result.totalPosts()).isEqualTo(2);
+        assertThat(result.totalComments()).isEqualTo(8);
+        assertThat(result.comments()).anySatisfy(comment -> {
+            assertThat(comment.message()).contains("HORRIBLE");
+            assertThat(comment.flagged()).isTrue();
+        });
+        assertThat(result.positiveComments() + result.neutralComments()
+                + result.warningComments() + result.criticalComments())
+                .isEqualTo(result.totalComments());
     }
 }

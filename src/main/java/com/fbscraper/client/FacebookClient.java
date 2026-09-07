@@ -32,6 +32,9 @@ import java.util.List;
  */
 public class FacebookClient {
 
+    private static final DateTimeFormatter FACEBOOK_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+
     private final AppConfig config;
     private final Path sampleDataPath;
     private final HttpClient httpClient;
@@ -74,8 +77,8 @@ public class FacebookClient {
     /**
      * Fetches the page feed (posts and nested comments).
      * <p>
-     * If {@link AppConfig#offlineMode()} is true or if required credentials are missing,
-     * this falls back to loading the local sample feed file.
+     * If {@link AppConfig#offlineMode()} is true, this loads the local sample feed file.
+     * Live mode requires both a Page ID and Page access token.
      *
      * @return a list of parsed {@link FacebookPost} instances
      */
@@ -87,23 +90,10 @@ public class FacebookClient {
 
         if (config.pageId() == null || config.pageId().isBlank() ||
             config.accessToken() == null || config.accessToken().isBlank()) {
-            System.err.println("[FacebookClient] Missing fb.page.id or fb.access.token in config. Falling back to offline mock mode.");
-            return loadSampleFeed();
+            throw new IllegalStateException("Live mode requires fb.page.id and a Facebook Page access token");
         }
 
-        String fields =
-                "id,message,created_time,permalink_url," +
-                        "comments{id,message,created_time}";
-
-        String encodedFields =
-                URLEncoder.encode(fields, StandardCharsets.UTF_8);
-
-        String url = String.format(
-                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
-                config.apiVersion(),
-                config.pageId(),
-                encodedFields
-        );
+        String url = buildFeedUrl();
 
         System.out.println("[FacebookClient] Calling Facebook Graph API: " + config.apiVersion() + "/" + config.pageId());
 
@@ -121,7 +111,10 @@ public class FacebookClient {
             } else {
                 throw new RuntimeException("Facebook API error [HTTP " + response.statusCode() + "]: " + response.body());
             }
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Facebook Graph API request was interrupted", e);
+        } catch (IOException e) {
             throw new RuntimeException("Failed to call Facebook Graph API: " + e.getMessage(), e);
         }
     }
@@ -190,9 +183,9 @@ public class FacebookClient {
             return OffsetDateTime.parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
         } catch (DateTimeParseException e) {
             try {
-                return Instant.parse(text);
-            } catch (Exception ex) {
-                return Instant.now();
+                return OffsetDateTime.parse(text, FACEBOOK_TIME_FORMATTER).toInstant();
+            } catch (DateTimeParseException ex) {
+                throw new IllegalArgumentException("Unsupported Facebook timestamp: " + text, ex);
             }
         }
     }
@@ -203,7 +196,10 @@ public class FacebookClient {
      * @return the fully qualified and properly encoded URL string
      */
     public String buildFeedUrl() {
-        String fieldsParam = URLEncoder.encode("id,message,created_time,comments{id,message,created_time}", StandardCharsets.UTF_8);
+        String fieldsParam = URLEncoder.encode(
+                "id,message,created_time,comments{id,message,created_time}",
+                StandardCharsets.UTF_8
+        );
         return String.format(
                 "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
                 config.apiVersion(), config.pageId(), fieldsParam

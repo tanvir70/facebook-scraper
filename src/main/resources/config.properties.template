@@ -2,7 +2,7 @@
 # Get your Page ID from: Facebook Page -> About -> Page transparency
 fb.page.id=YOUR_FACEBOOK_PAGE_ID
 
-# Generate a Page Access Token with permissions: pages_read_engagement, pages_read_user_content
+# Generate a Page Access Token with permissions: pages_show_list, pages_read_engagement, pages_read_user_content
 # from Meta Developer Portal (https://developers.facebook.com/tools/explorer/)
 fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 
