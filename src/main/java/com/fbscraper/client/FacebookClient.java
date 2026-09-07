@@ -9,9 +9,11 @@ import com.fbscraper.model.FacebookPost;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -89,9 +91,18 @@ public class FacebookClient {
             return loadSampleFeed();
         }
 
+        String fields =
+                "id,message,created_time,permalink_url," +
+                        "comments{id,message,created_time}";
+
+        String encodedFields =
+                URLEncoder.encode(fields, StandardCharsets.UTF_8);
+
         String url = String.format(
-                "https://graph.facebook.com/%s/%s/feed?fields=id,message,created_time,comments{id,message,created_time}&limit=25",
-                config.apiVersion(), config.pageId()
+                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
+                config.apiVersion(),
+                config.pageId(),
+                encodedFields
         );
 
         System.out.println("[FacebookClient] Calling Facebook Graph API: " + config.apiVersion() + "/" + config.pageId());
@@ -184,5 +195,18 @@ public class FacebookClient {
                 return Instant.now();
             }
         }
+    }
+
+    /**
+     * Constructs and URL-encodes the target Graph API feed endpoint URI.
+     *
+     * @return the fully qualified and properly encoded URL string
+     */
+    public String buildFeedUrl() {
+        String fieldsParam = URLEncoder.encode("id,message,created_time,comments{id,message,created_time}", StandardCharsets.UTF_8);
+        return String.format(
+                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
+                config.apiVersion(), config.pageId(), fieldsParam
+        );
     }
 }

@@ -66,4 +66,19 @@ class FacebookClientTest {
         assertThat(posts.get(0).comments()).hasSize(1);
         assertThat(posts.get(0).comments().get(0).message()).isEqualTo("Nice test!");
     }
+
+    @Test
+    void shouldBuildValidEncodedFeedUrl() {
+        AppConfig config = new AppConfig("1214847765056124", "EAABsample", "v26.0", false, -0.05);
+        FacebookClient client = new FacebookClient(config);
+
+        String url = client.buildFeedUrl();
+
+        // Must not throw IllegalArgumentException when creating URI
+        java.net.URI uri = java.net.URI.create(url);
+        assertThat(uri).isNotNull();
+        assertThat(url).contains("https://graph.facebook.com/v26.0/1214847765056124/feed?");
+        assertThat(url).contains("%7B");
+        assertThat(url).contains("%7D");
+    }
 }

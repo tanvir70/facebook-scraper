@@ -38,7 +38,11 @@ public class App {
         System.out.println("==================================================");
 
         // 1. Load Configuration
-        AppConfig config = AppConfig.load();
+        AppConfig loadedConfig = AppConfig.load();
+        if (args != null && args.length > 0 && "--offline".equalsIgnoreCase(args[0])) {
+            loadedConfig = new AppConfig(loadedConfig.pageId(), loadedConfig.accessToken(), loadedConfig.apiVersion(), true, loadedConfig.negativeThreshold());
+        }
+        final AppConfig config = loadedConfig;
         System.out.println("Mode: " + (config.offlineMode() ? "OFFLINE (Mock Feed)" : "LIVE Facebook Graph API"));
         System.out.println("Negative Alert Threshold: compound <= " + config.negativeThreshold());
         System.out.println("--------------------------------------------------");
@@ -105,9 +109,23 @@ public class App {
         HtmlDashboardGenerator generator = new HtmlDashboardGenerator();
         generator.generateReport(posts, analyzedComments, outputPath);
 
+        // 7. Save Raw Scraped Comments as JSON
+        Path jsonPath = Path.of("output/comments.json");
+        try {
+            if (jsonPath.getParent() != null) {
+                java.nio.file.Files.createDirectories(jsonPath.getParent());
+            }
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
+        } catch (java.io.IOException e) {
+            System.err.println("[App] Failed to save comments.json: " + e.getMessage());
+        }
+
         System.out.println("==================================================");
-        System.out.println("Dashboard Ready: " + outputPath.toAbsolutePath());
-        System.out.println("Open it in your browser (e.g. google-chrome " + outputPath.toAbsolutePath() + ")");
+        System.out.println("Dashboard Ready : " + outputPath.toAbsolutePath());
+        System.out.println("JSON Data Saved : " + jsonPath.toAbsolutePath());
+        System.out.println("Open dashboard  : google-chrome " + outputPath.toAbsolutePath());
         System.out.println("==================================================");
     }
 }

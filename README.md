@@ -58,7 +58,7 @@ google-chrome output/dashboard.html
 ### Step 3: Configure `config.properties`
 Copy the template file to `config.properties`:
 ```bash
-cp src/main/resources/config.properties.template config.properties
+cp src/main/resources/config.properties config.properties
 ```
 
 Edit `config.properties`:

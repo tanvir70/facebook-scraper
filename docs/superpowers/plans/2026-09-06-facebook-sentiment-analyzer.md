@@ -22,7 +22,7 @@
 **Files:**
 - Create: `pom.xml`
 - Create: `.gitignore`
-- Create: `src/main/resources/config.properties.template`
+- Create: `../../../src/main/resources/config.properties`
 - Create: `src/main/java/com/fbanalyzer/config/AppConfig.java`
 - Test: `src/test/java/com/fbanalyzer/config/AppConfigTest.java`
 
