@@ -9,8 +9,14 @@ fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 # Facebook Graph API version (default v26.0)
 fb.api.version=v26.0
 
-# Set to true to test locally using mock data (data/sample_feed.json) without calling Facebook
-app.offline.mode=true
+# Number of posts to fetch per page request (max allowed by Meta is 100)
+fb.feed.limit=100
+
+# Number of comments to fetch per post (max allowed by Meta is 100)
+fb.comment.limit=100
+
+# Maximum number of pages to paginate through (default 5; set 0 for unlimited)
+fb.max.pages=5
 
 # Negative sentiment threshold (default -0.05). Any compound score <= this will be flagged
 app.negative.threshold=-0.05

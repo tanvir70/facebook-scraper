@@ -1,100 +1,90 @@
 # Facebook Scraper
 
-A modular Java 21 application designed to fetch posts and comments from Facebook (Page or Graph API), evaluate sentiment locally using an embedded VADER (Valence Aware Dictionary and sEntiment Reasoner) engine, and generate a standalone interactive HTML dashboard highlighting customer feedback and sentiment insights.
+A modular Java 21 application designed to scrape posts and nested comments from Facebook Pages via the Meta Graph API, evaluate sentiment locally using an embedded VADER (Valence Aware Dictionary and sEntiment Reasoner) engine, export structured JSON datasets (`output/comments.json`), and generate a standalone interactive HTML dashboard (`output/dashboard.html`).
 
 ---
 
 ## Features
 
 - **Official Facebook Graph API Integration:** Clean HTTP REST client using native `java.net.http.HttpClient` with Bearer Token authentication.
-- **Offline / Mock Mode:** Ships with realistic sample data (`data/sample_feed.json`) so you can develop, test, and run the entire pipeline immediately without waiting for Meta Developer App approval.
+- **Cursor-Based Feed Pagination:** Follows Facebook's `paging.next` cursor across multiple pages to fetch historical posts and comments without hitting arbitrary page limits.
+- **Granular Limit Control:** Separately configure posts per page (`fb.feed.limit=100`) and nested comments per post (`fb.comment.limit=100`).
+- **Direct Configuration:** Reads directly from a single `config.properties` file without complex classpath or environment variable indirections.
 - **Local VADER NLP Engine:** Fast in-memory sentiment scoring tailored specifically for social media (accounts for all-caps emphasis, exclamation marks `!`, negation reversal, and booster words).
 - **Interactive HTML Dashboard:** Generates `output/dashboard.html` with:
   - KPI summary cards (Total Posts, Total Comments, Negative Feedback Rate %, Health Status).
   - Visual doughnut chart (powered by Chart.js).
   - Actionable table of flagged negative comments with real-time keyword search.
+- **Raw JSON Data Export:** Saves analyzed comments to `output/comments.json` for downstream analytics.
 - **Zero Heavy Frameworks:** Minimal dependencies (Jackson for JSON, JUnit 5 + AssertJ for testing).
 - **IntelliJ IDEA Ready:** Pre-configured with Maven Wrapper (`./mvnw`).
 
 ---
 
-## Quick Start (Offline Mode)
+## Configuration (`config.properties`)
 
-You can run the application immediately out-of-the-box using the included sample feed:
+Create or edit `config.properties` in your project root (or `src/main/resources/config.properties`):
 
-```bash
-# 1. Compile and run tests
-./mvnw clean test
-
-# 2. Package and run the application
-./mvnw package
-java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
-```
-
-Once executed, open the generated dashboard in your browser:
-```bash
-xdg-open output/dashboard.html
-# or
-google-chrome output/dashboard.html
-```
-
----
-
-## Connecting to Your Live Facebook Page
-
-### Step 1: Create a Meta Developer App
-1. Go to the [Meta for Developers Portal](https://developers.facebook.com/).
-2. Click **My Apps** → **Create App** → Select **Other** → **Business**.
-3. Under Add Products, add **Facebook Login for Business** or **Graph API Explorer**.
-
-### Step 2: Generate a Page Access Token
-1. Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/).
-2. In the **User or Page** dropdown, select your Facebook Page.
-3. Ensure the following permissions are granted:
-   - `pages_read_engagement`
-   - `pages_read_user_content`
-4. Copy the generated **Page Access Token**.
-
-### Step 3: Configure `config.properties`
-Copy the template file to `config.properties`:
-```bash
-cp src/main/resources/config.properties config.properties
-```
-
-Edit `config.properties`:
 ```properties
 # Your numeric Facebook Page ID (found in Page -> About -> Page transparency)
-fb.page.id=123456789012345
+fb.page.id=1214847765056124
 
-# Your generated Page Access Token
+# Your Page Access Token with pages_read_engagement & pages_read_user_content permissions
 fb.access.token=EAAB...your_token_here...
 
-# API version (defaults to v26.0)
+# Graph API Version (defaults to v26.0)
 fb.api.version=v26.0
 
-# Set offline mode to false for live scraping
-app.offline.mode=false
+# Number of posts to fetch per page request (max allowed by Meta is 100)
+fb.feed.limit=100
 
-# Flag comments with compound sentiment score <= -0.05
+# Number of comments to fetch per post (max allowed by Meta is 100)
+fb.comment.limit=100
+
+# Maximum number of pages to paginate through (default 5; set 0 for unlimited)
+fb.max.pages=5
+
+# Negative sentiment threshold (default -0.05). Any compound score <= this will be flagged
 app.negative.threshold=-0.05
 ```
 
-Now re-run the application:
+---
+
+## Quick Start
+
+### 1. Run with Maven Wrapper
 ```bash
+./mvnw compile exec:java -Dexec.mainClass="com.fbscraper.App"
+```
+
+### 2. Build and Run Standalone JAR
+```bash
+# Package the shaded uber-jar
+./mvnw clean package
+
+# Run the application
 java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
 ```
 
+### 3. View Results
+- **HTML Dashboard:**
+  ```bash
+  google-chrome output/dashboard.html
+  # or
+  xdg-open output/dashboard.html
+  ```
+- **Raw Comments JSON:**
+  ```bash
+  cat output/comments.json
+  ```
+
 ---
 
-## Opening in IntelliJ IDEA
+## How Pagination Works
 
-The project is linked to `/home/tanvirar/IdeaProjects/facebook-sentiment-analyzer`:
-
-1. Open **IntelliJ IDEA**.
-2. Click **Open** (or **File** → **Open...**).
-3. Navigate to the project directory.
-4. IntelliJ will automatically recognize the `pom.xml` and configure your Java 21 SDK.
-5. You can directly run [`com.fbscraper.App.main()`](src/main/java/com/fbscraper/App.java) with a single click.
+1. **Initial Call**: The scraper requests `https://graph.facebook.com/v26.0/{page-id}/feed?fields=...&limit=100` requesting up to `100` posts and up to `100` comments per post (`comments.limit(100)`).
+2. **Cursor Navigation**: When Meta returns a `paging.next` URL containing the cursor (`after=...`), the scraper automatically fetches the next page.
+3. **Safety Cap**: The process repeats until all posts are retrieved or the configured `fb.max.pages` limit is reached (default: 5 pages = up to 500 posts).
 
 ---
 
@@ -104,15 +94,14 @@ The project is linked to `/home/tanvirar/IdeaProjects/facebook-sentiment-analyze
 facebook-scraper/
 ├── pom.xml                                   # Maven build configuration (Java 21)
 ├── README.md                                 # Documentation & usage guide
+├── config.properties                         # Active runtime configuration (gitignored)
 ├── config.properties.template                # Configuration template
-├── data/
-│   └── sample_feed.json                      # Realistic mock feed for local testing
 ├── src/
 │   ├── main/
 │   │   ├── java/com/fbscraper/
 │   │   │   ├── App.java                      # CLI coordinator & pipeline runner
 │   │   │   ├── config/
-│   │   │   │   └── AppConfig.java            # Config loader with env fallbacks
+│   │   │   │   └── AppConfig.java            # Strict config.properties file reader
 │   │   │   ├── model/
 │   │   │   │   ├── FacebookPost.java         # Immutable records
 │   │   │   │   ├── FacebookComment.java
@@ -120,7 +109,7 @@ facebook-scraper/
 │   │   │   │   ├── SentimentLevel.java
 │   │   │   │   └── AnalyzedComment.java
 │   │   │   ├── client/
-│   │   │   │   └── FacebookClient.java       # Facebook Graph API & mock loader
+│   │   │   │   └── FacebookClient.java       # Graph API client with cursor pagination
 │   │   │   ├── sentiment/
 │   │   │   │   └── VaderAnalyzer.java        # Local VADER sentiment engine
 │   │   │   └── report/
@@ -141,7 +130,7 @@ facebook-scraper/
 
 ## Running Automated Tests
 
-To run all unit and integration tests:
+To run all 20 unit and integration tests:
 ```bash
 ./mvnw clean test
 ```

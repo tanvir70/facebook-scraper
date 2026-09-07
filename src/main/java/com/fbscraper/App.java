@@ -37,14 +37,27 @@ public class App {
         System.out.println("                 Facebook Scraper                 ");
         System.out.println("==================================================");
 
-        // 1. Load Configuration
-        AppConfig loadedConfig = AppConfig.load();
-        if (args != null && args.length > 0 && "--offline".equalsIgnoreCase(args[0])) {
-            loadedConfig = new AppConfig(loadedConfig.pageId(), loadedConfig.accessToken(), loadedConfig.apiVersion(), true, loadedConfig.negativeThreshold());
+        // 1. Load Configuration from config.properties
+        AppConfig config;
+        try {
+            config = AppConfig.load();
+        } catch (Exception e) {
+            System.err.println("[App] Error loading configuration: " + e.getMessage());
+            return;
         }
-        final AppConfig config = loadedConfig;
-        System.out.println("Mode: " + (config.offlineMode() ? "OFFLINE (Mock Feed)" : "LIVE Facebook Graph API"));
-        System.out.println("Negative Alert Threshold: compound <= " + config.negativeThreshold());
+
+        if (config.pageId().isBlank() || config.accessToken().isBlank()) {
+            System.err.println("[App] Error: fb.page.id and fb.access.token must be set in config.properties.");
+            System.err.println("[App] Please edit config.properties and provide your Facebook Page credentials.");
+            return;
+        }
+
+        System.out.println("Target Page ID : " + config.pageId());
+        System.out.println("API Version    : " + config.apiVersion());
+        System.out.println("Post Limit     : " + config.feedLimit() + " per page");
+        System.out.println("Comment Limit  : " + config.commentLimit() + " per post");
+        System.out.println("Max Pages      : " + (config.maxPages() <= 0 ? "Unlimited" : config.maxPages()));
+        System.out.println("Alert Threshold: compound <= " + config.negativeThreshold());
         System.out.println("--------------------------------------------------");
 
         // 2. Fetch Facebook Page Posts and Comments

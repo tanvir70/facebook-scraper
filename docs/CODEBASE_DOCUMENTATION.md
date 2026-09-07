@@ -47,53 +47,46 @@ The application is structured as a pipeline with four decoupled stages:
 
 ### Component 1: `AppConfig.java`
 **Package:** `com.fbscraper.config`  
-**Type:** `record AppConfig(String pageId, String accessToken, String apiVersion, boolean offlineMode, double negativeThreshold)`
+**Type:** `record AppConfig(String pageId, String accessToken, String apiVersion, int feedLimit, int commentLimit, int maxPages, double negativeThreshold)`
 
-Represents the immutable runtime configuration of the application.
+Represents the immutable runtime configuration of the application loaded strictly from `config.properties`.
 
 #### Fields:
 - `pageId`: The numeric Facebook Page ID to scrape.
 - `accessToken`: The Meta User/Page Access Token with required permissions.
 - `apiVersion`: Facebook Graph API version (default `"v26.0"`).
-- `offlineMode`: When `true`, uses mock sample feed rather than making live network calls.
+- `feedLimit`: Post limit per request (default `100`, Meta maximum).
+- `commentLimit`: Comment limit per post (default `100`, Meta maximum).
+- `maxPages`: Maximum number of feed pages to paginate through (default `5`; `0` for unlimited).
 - `negativeThreshold`: Compound sentiment score cut-off (default `-0.05`). Any score $\le -0.05$ is flagged as negative.
 
 #### Constants:
 - `DEFAULT_API_VERSION = "v26.0"`: Standard supported Graph API version.
-- `DEFAULT_OFFLINE_MODE = true`: Safe fallback so the app works without API credentials.
+- `DEFAULT_FEED_LIMIT = 100`: Maximum allowed batch size for posts per feed request.
+- `DEFAULT_COMMENT_LIMIT = 100`: Maximum allowed nested comments retrieved per post.
+- `DEFAULT_MAX_PAGES = 5`: Default pagination depth safety cap.
 - `DEFAULT_NEGATIVE_THRESHOLD = -0.05`: VADER standard threshold for negative sentiment.
 
 #### Methods:
 
 ##### `public static AppConfig load()`
-- **Purpose:** Loads configuration safely from file storage or classpath.
+- **Purpose:** Loads configuration strictly from `config.properties`.
 - **Line-by-Line Logic:**
-  - `Path localFile = Path.of("config.properties");`: Checks the current working directory for `config.properties`.
-  - `if (Files.exists(localFile))`: If found, opens a `FileInputStream` and loads key-value pairs into a `Properties` object.
-  - `else`: Tries loading `config.properties` from the application classpath (`getResourceAsStream`).
-  - Catches and ignores `IOException` to allow falling back gracefully to environment variables or defaults.
-  - Calls `fromProperties(props)` and returns the resulting `AppConfig`.
+  - Checks if `config.properties` exists in the current working directory.
+  - If not found, checks `src/main/resources/config.properties`.
+  - Throws `IllegalStateException` if neither exists, prompting the user to create one.
+  - Opens `FileInputStream` directly and loads properties into a `Properties` instance.
+  - Delegates to `fromProperties(props)` and returns the resulting `AppConfig`.
 
 ##### `public static AppConfig fromProperties(Properties props)`
-- **Purpose:** Extracts individual settings from properties or environment variables.
+- **Purpose:** Extracts individual settings from the properties object.
 - **Line-by-Line Logic:**
-  - Calls helper `getPropOrEnv` for `pageId`, `accessToken`, `apiVersion`, `offlineMode`, and `negativeThreshold`.
-  - Parses boolean flag `offlineMode` via `Boolean.parseBoolean`.
-  - Parses threshold via helper `parseDoubleOrDefault`.
+  - Extracts `fb.page.id`, `fb.access.token`, and `fb.api.version`.
+  - Parses `fb.feed.limit` via `parseIntOrDefault(..., 100)`.
+  - Parses `fb.comment.limit` via `parseIntOrDefault(..., 100)`.
+  - Parses `fb.max.pages` via `parseIntOrDefault(..., 5)`.
+  - Parses `app.negative.threshold` via `parseDoubleOrDefault(..., -0.05)`.
   - Constructs and returns `new AppConfig(...)`.
-
-##### `private static String getPropOrEnv(Properties props, String propKey, String envKey, String defaultVal)`
-- **Purpose:** Priority-based fallback resolver for string properties.
-- **Line-by-Line Logic:**
-  1. Checks `props.getProperty(propKey)`. If non-null and non-blank, returns it trimmed.
-  2. Checks `System.getenv(envKey)`. If non-null and non-blank, returns it trimmed.
-  3. Returns `defaultVal`.
-
-##### `private static double parseDoubleOrDefault(String str, double defaultVal)`
-- **Purpose:** Safely converts string to double without crashing on invalid input.
-- **Line-by-Line Logic:**
-  - Wraps `Double.parseDouble(str)` in a `try-catch` block catching `NumberFormatException`.
-  - Returns `defaultVal` if parsing fails.
 
 ---
 
@@ -133,60 +126,55 @@ Categorical classification derived from compound score:
 
 ### Component 3: `FacebookClient.java`
 **Package:** `com.fbscraper.client`  
-**Purpose:** Connects to Facebook Graph API or loads sample mock data from disk.
+**Purpose:** Connects to Facebook Graph API with cursor-based pagination and configurable post/comment limits.
+
+#### Inner Types:
+- `public record FeedPage(List<FacebookPost> posts, String nextUrl)`: Encapsulates a batch of parsed posts and the next cursor URL.
+- `public interface HttpSender`: Functional interface `send(HttpRequest request)` decoupling HTTP transport for clean testing.
 
 #### Fields:
 - `config`: Runtime configuration.
-- `sampleDataPath`: `Path` to mock JSON (`data/sample_feed.json`).
-- `httpClient`: Standard Java 11+ `java.net.http.HttpClient`.
+- `httpSender`: Functional HTTP sender using `HttpClient`.
 - `objectMapper`: Jackson `ObjectMapper` configured with `JavaTimeModule` for date-time handling.
 
 #### Constructors:
-- `FacebookClient(AppConfig config)`: Default constructor pointing to `data/sample_feed.json` and `HttpClient.newHttpClient()`.
-- `FacebookClient(AppConfig config, Path sampleDataPath)`: Allows overriding sample path for custom tests.
-- `FacebookClient(AppConfig config, Path sampleDataPath, HttpClient httpClient)`: Full dependency-injection constructor enabling unit tests with mock HTTP clients.
+- `FacebookClient(AppConfig config)`: Default constructor using `HttpClient.newHttpClient()`.
+- `FacebookClient(AppConfig config, HttpClient httpClient)`: Convenience constructor for custom HTTP clients.
+- `FacebookClient(AppConfig config, HttpSender httpSender)`: Full dependency-injection constructor for testing without mocks or reflection.
 
 #### Methods:
 
 ##### `public List<FacebookPost> fetchPageFeed()`
-- **Purpose:** Primary entrypoint to retrieve posts and comments.
+- **Purpose:** Primary entrypoint to retrieve posts and comments across multiple pages.
 - **Line-by-Line Logic:**
-  - Checks `if (config.offlineMode())`: Logs mock mode and calls `loadSampleFeed()`.
-  - Checks if `pageId` or `accessToken` is blank: Logs warning and falls back to `loadSampleFeed()`.
-  - Constructs Graph API URL:
-    `https://graph.facebook.com/{apiVersion}/{pageId}/feed?fields=id,message,created_time,comments{id,message,created_time}&limit=25`
-  - Prepares `HttpRequest` with `Authorization: Bearer <token>` and a 15-second timeout.
-  - Calls `httpClient.send(request, HttpResponse.BodyHandlers.ofString())`.
-  - If status code is `200`, delegates to `parseFeedJson(response.body())`.
-  - Otherwise, throws a `RuntimeException` detailing HTTP error status and body.
+  - Validates `fb.page.id` and `fb.access.token` (throws `IllegalStateException` if missing).
+  - Starts with `buildFeedUrl()` containing `limit={feedLimit}` and `comments.limit({commentLimit})`.
+  - Loops while `currentUrl != null`:
+    1. Sends GET request with `Authorization: Bearer <token>`.
+    2. Parses response via `parseFeedPage(response.body())`.
+    3. Appends parsed posts to `allPosts`.
+    4. Checks `pageCount >= config.maxPages()`: stops if max pages reached.
+    5. Updates `currentUrl = feedPage.nextUrl()`.
+  - Returns accumulated list of all posts.
 
-##### `public List<FacebookPost> parseFeedJson(String json)`
-- **Purpose:** Parses Facebook Graph API JSON tree into domain records.
+##### `public FeedPage parseFeedPage(String json)`
+- **Purpose:** Parses Facebook Graph API JSON tree into domain records and extracts next cursor URL.
 - **Line-by-Line Logic:**
   - Reads JSON using `objectMapper.readTree(json)`.
   - Traverses the `"data"` array representing posts.
-  - For each post node:
-    - Extracts `"id"`, `"message"`, and `"created_time"`.
-    - Parses timestamp via `parseInstant(...)`.
-    - Traverses nested `comments.data` array.
-    - Extracts comment `"id"`, `"message"`, `"created_time"` and constructs `FacebookComment`.
-    - Constructs `FacebookPost` with list of comments.
-  - Returns accumulated `List<FacebookPost>`.
+  - Traverses nested `comments.data` array for each post, creating `FacebookComment` objects.
+  - Inspects `root.path("paging").path("next")` to obtain the next cursor URL.
+  - Returns `new FeedPage(posts, nextUrl)`.
 
-##### `private List<FacebookPost> loadSampleFeed()`
-- **Purpose:** Offline file loader.
-- **Line-by-Line Logic:**
-  - Checks if `sampleDataPath` exists on filesystem; if so, reads string via `Files.readString(sampleDataPath)`.
-  - If missing on disk, attempts to load `sample_feed.json` from classpath.
-  - Passes content to `parseFeedJson(json)`.
+##### `public List<FacebookPost> parseFeedJson(String json)`
+- Convenience wrapper delegating to `parseFeedPage(json).posts()`.
+
+##### `public String buildFeedUrl()`
+- **Purpose:** URL-encodes parameters and builds the initial Graph API feed query.
+- Encodes `comments.limit(%d){id,message,created_time}` and appends `&limit=%d`.
 
 ##### `private Instant parseInstant(String text)`
-- **Purpose:** Robust ISO date parser.
-- **Line-by-Line Logic:**
-  - If null or blank, returns `Instant.now()`.
-  - First attempts parsing as ISO offset date-time: `OffsetDateTime.parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant()`.
-  - Falls back to `Instant.parse(text)`.
-  - If all fail, defaults safely to `Instant.now()`.
+- **Purpose:** Robust ISO date parser with multi-format fallback.
 
 ---
 

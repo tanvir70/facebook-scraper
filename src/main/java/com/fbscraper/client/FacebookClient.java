@@ -14,8 +14,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -25,115 +23,144 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Client for fetching and parsing Facebook Page feed posts and nested comments.
+ * Client for fetching and parsing Facebook Page feed posts and nested comments via Meta Graph API.
  * <p>
- * Supports both live calls to the Meta Graph API via {@link HttpClient} and
- * offline mock execution using a local JSON feed file.
+ * Supports cursor-based pagination (following {@code paging.next}) and configurable post/comment limits.
  */
 public class FacebookClient {
 
+    /**
+     * Represents a single page of feed posts and an optional cursor URL for the subsequent page.
+     *
+     * @param posts   the list of posts parsed on this page
+     * @param nextUrl the URL to retrieve the next page of posts, or {@code null} if no further pages exist
+     */
+    public record FeedPage(List<FacebookPost> posts, String nextUrl) {}
+
+    /**
+     * Functional interface for sending an HTTP request and returning an HTTP response.
+     */
+    @FunctionalInterface
+    public interface HttpSender {
+        HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException;
+    }
+
     private final AppConfig config;
-    private final Path sampleDataPath;
-    private final HttpClient httpClient;
+    private final HttpSender httpSender;
     private final ObjectMapper objectMapper;
 
     /**
-     * Constructs a {@code FacebookClient} using the default sample feed path and default HTTP client.
+     * Constructs a {@code FacebookClient} using the standard {@link HttpClient}.
      *
      * @param config the application configuration
      */
     public FacebookClient(AppConfig config) {
-        this(config, Path.of("data/sample_feed.json"), HttpClient.newHttpClient());
+        this(config, HttpClient.newHttpClient());
     }
 
     /**
-     * Constructs a {@code FacebookClient} with a custom sample feed path and default HTTP client.
+     * Dependency-injection constructor using an {@link HttpClient} instance.
      *
-     * @param config         the application configuration
-     * @param sampleDataPath path to the sample JSON file
+     * @param config     the application configuration
+     * @param httpClient the {@link HttpClient} instance for API calls
      */
-    public FacebookClient(AppConfig config, Path sampleDataPath) {
-        this(config, sampleDataPath, HttpClient.newHttpClient());
+    public FacebookClient(AppConfig config, HttpClient httpClient) {
+        this(config, req -> httpClient.send(req, HttpResponse.BodyHandlers.ofString()));
     }
 
     /**
-     * Full dependency-injection constructor for testing and customization.
+     * Dependency-injection constructor using a custom {@link HttpSender}.
      *
-     * @param config         the application configuration
-     * @param sampleDataPath path to the sample JSON file
-     * @param httpClient     the {@link HttpClient} instance for live API calls
+     * @param config     the application configuration
+     * @param httpSender the {@link HttpSender} for executing HTTP requests
      */
-    public FacebookClient(AppConfig config, Path sampleDataPath, HttpClient httpClient) {
+    public FacebookClient(AppConfig config, HttpSender httpSender) {
         this.config = config;
-        this.sampleDataPath = sampleDataPath;
-        this.httpClient = httpClient;
+        this.httpSender = httpSender;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
     }
 
     /**
-     * Fetches the page feed (posts and nested comments).
-     * <p>
-     * If {@link AppConfig#offlineMode()} is true or if required credentials are missing,
-     * this falls back to loading the local sample feed file.
+     * Fetches the page feed (posts and nested comments) with automatic cursor-based pagination.
      *
-     * @return a list of parsed {@link FacebookPost} instances
+     * @return an aggregated list of all parsed {@link FacebookPost} instances across pages
+     * @throws IllegalStateException if credentials are not configured
+     * @throws RuntimeException      if the API call or JSON parsing fails
      */
     public List<FacebookPost> fetchPageFeed() {
-        if (config.offlineMode()) {
-            System.out.println("[FacebookClient] Running in OFFLINE / MOCK mode. Loading sample feed...");
-            return loadSampleFeed();
-        }
-
         if (config.pageId() == null || config.pageId().isBlank() ||
             config.accessToken() == null || config.accessToken().isBlank()) {
-            System.err.println("[FacebookClient] Missing fb.page.id or fb.access.token in config. Falling back to offline mock mode.");
-            return loadSampleFeed();
+            throw new IllegalStateException("Missing required fb.page.id or fb.access.token in config.properties");
         }
 
-        String fields =
-                "id,message,created_time,permalink_url," +
-                        "comments{id,message,created_time}";
+        List<FacebookPost> allPosts = new ArrayList<>();
+        String currentUrl = buildFeedUrl();
+        int pageCount = 0;
 
-        String encodedFields =
-                URLEncoder.encode(fields, StandardCharsets.UTF_8);
+        System.out.println("[FacebookClient] Connecting to Facebook Graph API: " + config.apiVersion() + "/" + config.pageId());
+        System.out.printf("[FacebookClient] Posts/Page: %d | Comments/Post: %d | Max Pages: %s%n",
+                config.feedLimit(), config.commentLimit(),
+                config.maxPages() <= 0 ? "unlimited" : String.valueOf(config.maxPages()));
 
-        String url = String.format(
-                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
-                config.apiVersion(),
-                config.pageId(),
-                encodedFields
-        );
+        while (currentUrl != null && !currentUrl.isBlank()) {
+            pageCount++;
+            System.out.printf("[FacebookClient] Fetching feed page %d...%n", pageCount);
 
-        System.out.println("[FacebookClient] Calling Facebook Graph API: " + config.apiVersion() + "/" + config.pageId());
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(currentUrl))
+                    .header("Authorization", "Bearer " + config.accessToken())
+                    .timeout(Duration.ofSeconds(20))
+                    .GET()
+                    .build();
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + config.accessToken())
-                .timeout(Duration.ofSeconds(15))
-                .GET()
-                .build();
+            try {
+                HttpResponse<String> response = httpSender.send(request);
+                if (response.statusCode() == 200) {
+                    FeedPage feedPage = parseFeedPage(response.body());
+                    if (feedPage.posts().isEmpty()) {
+                        System.out.printf("[FacebookClient] Page %d contained no posts. Reached end of feed.%n", pageCount);
+                        break;
+                    }
 
-        try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                return parseFeedJson(response.body());
-            } else {
-                throw new RuntimeException("Facebook API error [HTTP " + response.statusCode() + "]: " + response.body());
+                    allPosts.addAll(feedPage.posts());
+                    System.out.printf("[FacebookClient] Page %d retrieved %d post(s) (Total accumulated: %d posts)%n",
+                            pageCount, feedPage.posts().size(), allPosts.size());
+
+                    if (config.maxPages() > 0 && pageCount >= config.maxPages()) {
+                        System.out.printf("[FacebookClient] Reached max page limit (%d). Stopping pagination.%n", config.maxPages());
+                        break;
+                    }
+
+                    currentUrl = feedPage.nextUrl();
+                    if (currentUrl == null || currentUrl.isBlank()) {
+                        System.out.println("[FacebookClient] No next page cursor found. Feed scrape complete.");
+                    }
+                } else {
+                    throw new RuntimeException("Facebook API error [HTTP " + response.statusCode() + "]: " + response.body());
+                }
+            } catch (IOException | InterruptedException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                throw new RuntimeException("Failed to call Facebook Graph API: " + e.getMessage(), e);
             }
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException("Failed to call Facebook Graph API: " + e.getMessage(), e);
         }
+
+        return allPosts;
     }
 
     /**
-     * Parses Facebook Graph API JSON feed response into a list of {@link FacebookPost} domain objects.
+     * Parses a Facebook Graph API feed JSON response into a {@link FeedPage}
+     * containing domain objects and the next cursor URL if present.
      *
-     * @param json raw JSON string from Facebook Graph API or mock data
-     * @return a list of parsed {@link FacebookPost} instances
+     * @param json raw JSON string from Facebook Graph API
+     * @return a {@link FeedPage} record containing parsed posts and the next pagination URL
      */
-    public List<FacebookPost> parseFeedJson(String json) {
+    public FeedPage parseFeedPage(String json) {
         List<FacebookPost> posts = new ArrayList<>();
+        String nextUrl = null;
+
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode dataArray = root.path("data");
@@ -157,29 +184,26 @@ public class FacebookClient {
                     posts.add(new FacebookPost(id, message, createdTime, comments));
                 }
             }
+
+            JsonNode nextNode = root.path("paging").path("next");
+            if (!nextNode.isMissingNode() && !nextNode.isNull() && !nextNode.asText().isBlank()) {
+                nextUrl = nextNode.asText();
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Facebook feed JSON", e);
         }
-        return posts;
+
+        return new FeedPage(posts, nextUrl);
     }
 
-    private List<FacebookPost> loadSampleFeed() {
-        try {
-            if (Files.exists(sampleDataPath)) {
-                String json = Files.readString(sampleDataPath);
-                return parseFeedJson(json);
-            }
-            // Classpath fallback
-            try (var in = getClass().getClassLoader().getResourceAsStream("sample_feed.json")) {
-                if (in != null) {
-                    String json = new String(in.readAllBytes());
-                    return parseFeedJson(json);
-                }
-            }
-            throw new IllegalStateException("Sample feed file not found at " + sampleDataPath.toAbsolutePath());
-        } catch (IOException e) {
-            throw new RuntimeException("Error reading sample feed: " + e.getMessage(), e);
-        }
+    /**
+     * Parses Facebook Graph API JSON feed response into a list of {@link FacebookPost} domain objects.
+     *
+     * @param json raw JSON string from Facebook Graph API
+     * @return a list of parsed {@link FacebookPost} instances
+     */
+    public List<FacebookPost> parseFeedJson(String json) {
+        return parseFeedPage(json).posts();
     }
 
     private Instant parseInstant(String text) {
@@ -198,15 +222,18 @@ public class FacebookClient {
     }
 
     /**
-     * Constructs and URL-encodes the target Graph API feed endpoint URI.
+     * Constructs and URL-encodes the initial Graph API feed endpoint URI with configured limits.
      *
      * @return the fully qualified and properly encoded URL string
      */
     public String buildFeedUrl() {
-        String fieldsParam = URLEncoder.encode("id,message,created_time,comments{id,message,created_time}", StandardCharsets.UTF_8);
+        String fieldsParam = URLEncoder.encode(
+                String.format("id,message,created_time,permalink_url,comments.limit(%d){id,message,created_time}", config.commentLimit()),
+                StandardCharsets.UTF_8
+        );
         return String.format(
-                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=25",
-                config.apiVersion(), config.pageId(), fieldsParam
+                "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=%d",
+                config.apiVersion(), config.pageId(), fieldsParam, config.feedLimit()
         );
     }
 }
