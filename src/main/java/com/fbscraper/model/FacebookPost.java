@@ -23,4 +23,8 @@ public record FacebookPost(
         comments = (comments == null) ? List.of() : List.copyOf(comments);
         reactions = reactions == null ? ReactionSummary.empty() : reactions;
     }
+
+    public FacebookPost(String id, String message, Instant createdTime, List<FacebookComment> comments) {
+        this(id, message, createdTime, comments, ReactionSummary.empty());
+    }
 }

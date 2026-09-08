@@ -3,8 +3,11 @@ package com.fbscraper.service;
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.CommentAnalysis;
+import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
 import com.fbscraper.model.ReactionSummary;
 import com.fbscraper.model.SentimentLevel;
@@ -38,8 +41,11 @@ public final class SentimentSyncService {
 
     public SyncResult sync() {
         List<FacebookPost> posts = facebookClient.fetchPageFeed();
+        PageRatingSummary pageRating = facebookClient.fetchPageRatingSummary();
+        List<FacebookReview> fetchedReviews = facebookClient.fetchPageReviews();
         List<CommentAnalysis> comments = new ArrayList<>();
         List<PostReactionAnalysis> postReactions = new ArrayList<>();
+        List<AnalyzedReview> reviews = new ArrayList<>();
 
         for (FacebookPost post : posts) {
             String snippet = createSnippet(post.message());
@@ -66,14 +72,22 @@ public final class SentimentSyncService {
             }
         }
 
+        for (FacebookReview review : fetchedReviews) {
+            reviews.add(new AnalyzedReview(review, analyzeReview(review)));
+        }
+
         comments.sort(Comparator.comparing(CommentAnalysis::createdTime).reversed());
         postReactions.sort(Comparator.comparing(PostReactionAnalysis::createdTime).reversed());
+        reviews.sort(Comparator.comparing(review -> review.review().createdTime(), Comparator.reverseOrder()));
 
         int positive = countByLevel(comments, SentimentLevel.POSITIVE);
         int neutral = countByLevel(comments, SentimentLevel.NEUTRAL);
         int warning = countByLevel(comments, SentimentLevel.WARNING_NEGATIVE);
         int critical = countByLevel(comments, SentimentLevel.CRITICAL_NEGATIVE);
         int negative = (int) comments.stream().filter(CommentAnalysis::flagged).count();
+        int negativeReviews = (int) reviews.stream()
+                .filter(review -> review.score().compound() <= config.negativeThreshold())
+                .count();
         ReactionSummary reactionTotals = sumReactions(posts);
         ReactionSummary commentReactionTotals = sumCommentReactions(posts);
         double negativeRate = comments.isEmpty()
@@ -82,7 +96,6 @@ public final class SentimentSyncService {
 
         return new SyncResult(
                 Instant.now(),
-                config.offlineMode(),
                 config.negativeThreshold(),
                 posts.size(),
                 comments.size(),
@@ -97,8 +110,26 @@ public final class SentimentSyncService {
                 negative,
                 negativeRate,
                 comments,
-                postReactions
+                postReactions,
+                pageRating,
+                reviews.size(),
+                negativeReviews,
+                reviews
         );
+    }
+
+    private SentimentScore analyzeReview(FacebookReview review) {
+        String text = review.reviewText() == null ? "" : review.reviewText();
+        if (!text.isBlank()) {
+            return analyzer.analyze(text);
+        }
+        if (review.isPositiveRecommendation()) {
+            return new SentimentScore(0.5, 0.5, 0.5, 0.0, SentimentLevel.POSITIVE);
+        }
+        if (review.isNegativeRecommendation()) {
+            return new SentimentScore(-0.5, 0.0, 0.5, 0.5, SentimentLevel.CRITICAL_NEGATIVE);
+        }
+        return new SentimentScore(0.0, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL);
     }
 
     private ReactionSummary sumReactions(List<FacebookPost> posts) {

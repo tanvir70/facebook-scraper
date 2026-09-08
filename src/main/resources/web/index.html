@@ -179,7 +179,7 @@
 
         .stats {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
             gap: 16px;
             margin-bottom: 20px;
         }
@@ -302,6 +302,35 @@
 
         .results-card { overflow: hidden; }
 
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin: 4px 0 16px;
+            padding: 6px;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+
+        .tab-button {
+            padding: 10px 15px;
+            border: 0;
+            border-radius: 9px;
+            color: var(--muted);
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 750;
+        }
+
+        .tab-button.active {
+            color: var(--brand);
+            background: #eef3ff;
+        }
+
+        .tab-panel[hidden] { display: none; }
+
         .reactions-card {
             margin-bottom: 20px;
             overflow: hidden;
@@ -366,6 +395,12 @@
             color: var(--muted);
             font-size: 10px;
             line-height: 1.45;
+        }
+
+        .review-text {
+            max-width: 520px;
+            line-height: 1.5;
+            font-weight: 600;
         }
 
         .results-header {
@@ -528,9 +563,14 @@
             <span id="negativeDetail" class="stat-detail">Configured threshold</span>
         </article>
         <article class="card stat">
-            <span class="stat-label">Post reactions</span>
-            <span id="reactionsValue" class="stat-value">—</span>
-            <span class="stat-detail">Across fetched posts</span>
+            <span class="stat-label">Page reviews</span>
+            <span id="reviewsValue" class="stat-value">—</span>
+            <span id="reviewsDetail" class="stat-detail">Recommendations and reviews</span>
+        </article>
+        <article class="card stat">
+            <span class="stat-label">Page rating</span>
+            <span id="ratingValue" class="stat-value">—</span>
+            <span id="ratingDetail" class="stat-detail">No rating loaded</span>
         </article>
     </section>
 
@@ -565,97 +605,117 @@
         </article>
     </section>
 
-    <section class="card reactions-card">
-        <div class="results-header">
-            <div>
-                <h2>Post reactions</h2>
-                <span id="reactionMeta" class="section-meta">Run a sync to load reactions</span>
+    <nav class="tabs" aria-label="Dashboard views">
+        <button class="tab-button active" data-tab="comments" type="button">Comments</button>
+        <button class="tab-button" data-tab="post-reactions" type="button">Post reactions</button>
+        <button class="tab-button" data-tab="reviews" type="button">Reviews</button>
+    </nav>
+
+    <section id="commentsPanel" class="tab-panel" data-panel="comments">
+        <article class="card results-card">
+            <div class="results-header">
+                <div>
+                    <h2>Analyzed comments</h2>
+                    <span id="resultCount" class="section-meta">Run a sync to load comments</span>
+                </div>
+                <div class="filters" aria-label="Comment filters">
+                    <button class="filter active" data-filter="all" type="button">All</button>
+                    <button class="filter" data-filter="negative" type="button">Negative</button>
+                    <button class="filter" data-filter="positive" type="button">Positive</button>
+                    <button class="filter" data-filter="neutral" type="button">Neutral</button>
+                </div>
             </div>
-        </div>
-        <div class="reaction-summary" aria-label="Reaction totals by type">
-            <div class="reaction-item">Like<strong id="likeCount">—</strong></div>
-            <div class="reaction-item">Love<strong id="loveCount">—</strong></div>
-            <div class="reaction-item">Care<strong id="careCount">—</strong></div>
-            <div class="reaction-item">Haha<strong id="hahaCount">—</strong></div>
-            <div class="reaction-item">Wow<strong id="wowCount">—</strong></div>
-            <div class="reaction-item">Sad<strong id="sadCount">—</strong></div>
-            <div class="reaction-item">Angry<strong id="angryCount">—</strong></div>
-        </div>
-        <p class="reaction-note">Meta can include some Care activity in Like counts; the Care value shown here is the separate CARE result returned by the API.</p>
-        <div id="reactionEmpty" class="empty">
-            <strong>No reactions loaded</strong>
-            Click Sync now to fetch reaction totals for each Page post.
-        </div>
-        <div id="reactionTableWrap" class="table-wrap" hidden>
-            <table>
-                <thead>
-                <tr>
-                    <th>Post</th>
-                    <th>Total</th>
-                    <th>Like</th>
-                    <th>Love</th>
-                    <th>Care</th>
-                    <th>Haha</th>
-                    <th>Wow</th>
-                    <th>Sad</th>
-                    <th>Angry</th>
-                </tr>
-                </thead>
-                <tbody id="reactionRows"></tbody>
-            </table>
-        </div>
+            <div id="emptyState" class="empty">
+                <strong>No comments loaded</strong>
+                Click Sync now to fetch and analyze the latest Page comments.
+            </div>
+            <div id="tableWrap" class="table-wrap" hidden>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Sentiment</th>
+                        <th>Comment and post</th>
+                        <th>Reactions</th>
+                        <th>Score</th>
+                        <th>Created</th>
+                    </tr>
+                    </thead>
+                    <tbody id="commentRows"></tbody>
+                </table>
+            </div>
+        </article>
     </section>
 
-    <section class="card reactions-card">
-        <div class="results-header">
-            <div>
-                <h2>Comment reactions</h2>
-                <span id="commentReactionMeta" class="section-meta">Run a sync to load comment reactions</span>
+    <section class="tab-panel" data-panel="post-reactions" hidden>
+        <article class="card reactions-card">
+            <div class="results-header">
+                <div>
+                    <h2>Post reactions</h2>
+                    <span id="reactionMeta" class="section-meta">Run a sync to load reactions</span>
+                </div>
             </div>
-        </div>
-        <div class="reaction-summary" aria-label="Comment reaction totals by type">
-            <div class="reaction-item">Like<strong id="commentLikeCount">—</strong></div>
-            <div class="reaction-item">Love<strong id="commentLoveCount">—</strong></div>
-            <div class="reaction-item">Care<strong id="commentCareCount">—</strong></div>
-            <div class="reaction-item">Haha<strong id="commentHahaCount">—</strong></div>
-            <div class="reaction-item">Wow<strong id="commentWowCount">—</strong></div>
-            <div class="reaction-item">Sad<strong id="commentSadCount">—</strong></div>
-            <div class="reaction-item">Angry<strong id="commentAngryCount">—</strong></div>
-        </div>
-        <p class="reaction-note">The per-comment reaction breakdown is included in the analyzed comments table below.</p>
+            <div class="reaction-summary" aria-label="Reaction totals by type">
+                <div class="reaction-item">Like<strong id="likeCount">—</strong></div>
+                <div class="reaction-item">Love<strong id="loveCount">—</strong></div>
+                <div class="reaction-item">Care<strong id="careCount">—</strong></div>
+                <div class="reaction-item">Haha<strong id="hahaCount">—</strong></div>
+                <div class="reaction-item">Wow<strong id="wowCount">—</strong></div>
+                <div class="reaction-item">Sad<strong id="sadCount">—</strong></div>
+                <div class="reaction-item">Angry<strong id="angryCount">—</strong></div>
+            </div>
+            <p class="reaction-note">Meta can include some Care activity in Like counts; Care shows the separate CARE result returned by the API.</p>
+            <div id="reactionEmpty" class="empty">
+                <strong>No reactions loaded</strong>
+                Click Sync now to fetch reaction totals for each Page post.
+            </div>
+            <div id="reactionTableWrap" class="table-wrap" hidden>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Post</th>
+                        <th>Total</th>
+                        <th>Like</th>
+                        <th>Love</th>
+                        <th>Care</th>
+                        <th>Haha</th>
+                        <th>Wow</th>
+                        <th>Sad</th>
+                        <th>Angry</th>
+                    </tr>
+                    </thead>
+                    <tbody id="reactionRows"></tbody>
+                </table>
+            </div>
+        </article>
     </section>
 
-    <section class="card results-card">
-        <div class="results-header">
-            <div>
-                <h2>Analyzed comments</h2>
-                <span id="resultCount" class="section-meta">Run a sync to load comments</span>
+    <section class="tab-panel" data-panel="reviews" hidden>
+        <article class="card results-card">
+            <div class="results-header">
+                <div>
+                    <h2>Page reviews</h2>
+                    <span id="reviewMeta" class="section-meta">Run a sync to load reviews</span>
+                </div>
             </div>
-            <div class="filters" aria-label="Comment filters">
-                <button class="filter active" data-filter="all" type="button">All</button>
-                <button class="filter" data-filter="negative" type="button">Negative</button>
-                <button class="filter" data-filter="positive" type="button">Positive</button>
-                <button class="filter" data-filter="neutral" type="button">Neutral</button>
+            <div id="reviewEmpty" class="empty">
+                <strong>No reviews loaded</strong>
+                The Page may not have reviews enabled or accessible.
             </div>
-        </div>
-        <div id="emptyState" class="empty">
-            <strong>No comments loaded</strong>
-            Click Sync now to fetch and analyze the latest Page comments.
-        </div>
-        <div id="tableWrap" class="table-wrap" hidden>
-            <table>
-                <thead>
-                <tr>
-                    <th>Sentiment</th>
-                    <th>Comment and post</th>
-                    <th>Reactions</th>
-                    <th>Score</th>
-                    <th>Created</th>
-                </tr>
-                </thead>
-                <tbody id="commentRows"></tbody>
-            </table>
-        </div>
+            <div id="reviewTableWrap" class="table-wrap" hidden>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Recommendation</th>
+                        <th>Review</th>
+                        <th>Rating</th>
+                        <th>Sentiment</th>
+                        <th>Created</th>
+                    </tr>
+                    </thead>
+                    <tbody id="reviewRows"></tbody>
+                </table>
+            </div>
+        </article>
     </section>
 </main>
 
@@ -672,6 +732,9 @@
             document.querySelectorAll('.filter').forEach(item => item.classList.toggle('active', item === button));
             renderComments();
         });
+    });
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => selectTab(button.dataset.tab));
     });
 
     loadStatus();
@@ -711,14 +774,21 @@
         document.getElementById('commentsValue').textContent = result.totalComments;
         document.getElementById('negativeValue').textContent = result.negativeComments;
         document.getElementById('negativeDetail').textContent = `${result.negativeRate.toFixed(1)}% of analyzed comments`;
-        document.getElementById('reactionsValue').textContent = result.totalReactions;
+        document.getElementById('reviewsValue').textContent = result.totalReviews ?? 0;
+        document.getElementById('reviewsDetail').textContent =
+            `${result.negativeReviews ?? 0} negative reviews`;
+        const rating = result.pageRating || {};
+        document.getElementById('ratingValue').textContent =
+            rating.overallStarRating > 0 ? Number(rating.overallStarRating).toFixed(1) : '—';
+        document.getElementById('ratingDetail').textContent =
+            rating.ratingCount > 0 ? `${rating.ratingCount} ratings` : 'No rating available';
         document.getElementById('positiveCount').textContent = result.positiveComments;
         document.getElementById('neutralCount').textContent = result.neutralComments;
         document.getElementById('warningCount').textContent = result.warningComments;
         document.getElementById('criticalCount').textContent = result.criticalComments;
         document.getElementById('distributionMeta').textContent = `${result.totalComments} comments`;
         document.getElementById('syncStatus').textContent = 'Completed';
-        document.getElementById('syncMode').textContent = result.offlineMode ? 'Mock data' : 'Live Facebook';
+        document.getElementById('syncMode').textContent = 'Live Facebook';
         document.getElementById('syncTime').textContent = formatTime(result.syncedAt);
         document.getElementById('thresholdValue').textContent = `compound ≤ ${result.negativeThreshold}`;
 
@@ -730,6 +800,7 @@
         setConnection('ready', `Last synced ${formatTime(result.syncedAt)}`);
         renderReactions(result);
         renderComments();
+        renderReviews(result);
     }
 
     function renderReactions(result) {
@@ -745,13 +816,6 @@
         document.getElementById('reactionTableWrap').hidden = postReactions.length === 0;
         document.getElementById('reactionEmpty').hidden = postReactions.length > 0;
 
-        const commentTotals = result.commentReactionTotals || {};
-        ['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
-            const suffix = type.charAt(0).toUpperCase() + type.slice(1);
-            document.getElementById(`comment${suffix}Count`).textContent = commentTotals[type] ?? 0;
-        });
-        document.getElementById('commentReactionMeta').textContent =
-            `${result.totalCommentReactions ?? 0} reactions across ${result.totalComments} comments`;
     }
 
     function createReactionRow(post) {
@@ -835,6 +899,53 @@
 
     function typeLabel(type) {
         return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+
+    function renderReviews(result) {
+        const reviews = result.reviews || [];
+        document.getElementById('reviewMeta').textContent =
+            `${reviews.length} reviews · ${result.negativeReviews ?? 0} negative`;
+        document.getElementById('reviewRows').replaceChildren(...reviews.map(createReviewRow));
+        document.getElementById('reviewTableWrap').hidden = reviews.length === 0;
+        document.getElementById('reviewEmpty').hidden = reviews.length > 0;
+    }
+
+    function createReviewRow(analyzedReview) {
+        const review = analyzedReview.review || {};
+        const score = analyzedReview.score || {};
+        const row = document.createElement('tr');
+
+        const recommendationCell = document.createElement('td');
+        recommendationCell.textContent = typeLabel(review.recommendationType || 'unknown');
+
+        const reviewCell = document.createElement('td');
+        reviewCell.className = 'review-text';
+        reviewCell.textContent = review.reviewText || '[Recommendation without written review]';
+
+        const ratingCell = document.createElement('td');
+        ratingCell.textContent = review.rating > 0 ? `${review.rating} / 5` : '—';
+
+        const sentimentCell = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = `badge badge-${levelClass(score.level || 'NEUTRAL')}`;
+        badge.textContent = levelLabel(score.level || 'NEUTRAL');
+        sentimentCell.appendChild(badge);
+
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time';
+        timeCell.textContent = formatTime(review.createdTime);
+
+        row.append(recommendationCell, reviewCell, ratingCell, sentimentCell, timeCell);
+        return row;
+    }
+
+    function selectTab(tab) {
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.toggle('active', button.dataset.tab === tab);
+        });
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.hidden = panel.dataset.panel !== tab;
+        });
     }
 
     function levelClass(level) {

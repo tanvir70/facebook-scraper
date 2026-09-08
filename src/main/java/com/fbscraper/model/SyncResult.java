@@ -8,7 +8,6 @@ import java.util.List;
  */
 public record SyncResult(
         Instant syncedAt,
-        boolean offlineMode,
         double negativeThreshold,
         int totalPosts,
         int totalComments,
@@ -23,7 +22,11 @@ public record SyncResult(
         int negativeComments,
         double negativeRate,
         List<CommentAnalysis> comments,
-        List<PostReactionAnalysis> postReactions
+        List<PostReactionAnalysis> postReactions,
+        PageRatingSummary pageRating,
+        int totalReviews,
+        int negativeReviews,
+        List<AnalyzedReview> reviews
 ) {
     public SyncResult {
         reactionTotals = reactionTotals == null ? ReactionSummary.empty() : reactionTotals;
@@ -32,5 +35,7 @@ public record SyncResult(
                 : commentReactionTotals;
         comments = comments == null ? List.of() : List.copyOf(comments);
         postReactions = postReactions == null ? List.of() : List.copyOf(postReactions);
+        pageRating = pageRating == null ? PageRatingSummary.EMPTY : pageRating;
+        reviews = reviews == null ? List.of() : List.copyOf(reviews);
     }
 }

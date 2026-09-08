@@ -1,7 +1,9 @@
 package com.fbscraper.report;
 
 import com.fbscraper.model.AnalyzedComment;
+import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.SentimentLevel;
 
 import java.io.IOException;
@@ -13,15 +15,7 @@ import java.util.List;
 
 /**
  * Generates an interactive, self-contained HTML5/CSS3 dashboard highlighting
- * customer sentiment, KPI statistics, and negative feedback.
- * <p>
- * Features:
- * <ul>
- *   <li>Dark-themed modern CSS styling.</li>
- *   <li>Visual KPI stat cards (Total Posts, Total Comments, Negative/Positive Feedback Rates).</li>
- *   <li>Doughnut chart powered by Chart.js.</li>
- *   <li>Interactive table of flagged negative feedback with real-time keyword search.</li>
- * </ul>
+ * customer sentiment, KPI statistics, Page ratings, and reviews.
  */
 public class HtmlDashboardGenerator {
 
@@ -30,13 +24,28 @@ public class HtmlDashboardGenerator {
             .withZone(ZoneId.systemDefault());
 
     /**
-     * Generates a standalone HTML dashboard report and writes it to the specified output file path.
+     * Backward-compatible report generation method without reviews.
+     */
+    public void generateReport(List<FacebookPost> posts, List<AnalyzedComment> analyzedComments, Path outputPath) {
+        generateReport(posts, analyzedComments, PageRatingSummary.EMPTY, List.of(), outputPath);
+    }
+
+    /**
+     * Generates a comprehensive HTML dashboard report including post comments, page ratings, and reviews.
      *
      * @param posts            the list of scraped Facebook posts
      * @param analyzedComments the list of sentiment-analyzed comments
+     * @param ratingSummary    overall page rating statistics (or EMPTY)
+     * @param analyzedReviews  the list of customer reviews and recommendations
      * @param outputPath       the destination file path (e.g. output/dashboard.html)
      */
-    public void generateReport(List<FacebookPost> posts, List<AnalyzedComment> analyzedComments, Path outputPath) {
+    public void generateReport(
+            List<FacebookPost> posts,
+            List<AnalyzedComment> analyzedComments,
+            PageRatingSummary ratingSummary,
+            List<AnalyzedReview> analyzedReviews,
+            Path outputPath
+    ) {
         long totalPosts = posts.size();
         long totalComments = analyzedComments.size();
 
@@ -144,8 +153,19 @@ public class HtmlDashboardGenerator {
             .append("      <div class=\"card-value\" style=\"color: var(--success);\">")
             .append(String.format("%.1f%%", positivePercent)).append("</div>\n")
             .append("      <div class=\"subtitle\">").append(positiveCount).append(" positive comments</div>\n")
-            .append("    </div>\n")
-            .append("  </div>\n\n");
+            .append("    </div>\n");
+
+        if (ratingSummary != null && ratingSummary.hasRatings()) {
+            html.append("    <div class=\"card\">\n")
+                .append("      <div class=\"card-title\">Overall Page Rating</div>\n")
+                .append("      <div class=\"card-value\" style=\"color: #fbbf24;\">⭐ ")
+                .append(String.format("%.1f", ratingSummary.overallStarRating()))
+                .append(" <span style=\"font-size: 1rem; color: var(--text-muted); font-weight: normal;\">/ 5.0</span></div>\n")
+                .append("      <div class=\"subtitle\">").append(ratingSummary.ratingCount()).append(" total ratings</div>\n")
+                .append("    </div>\n");
+        }
+
+        html.append("  </div>\n\n");
 
         // Charts & Insights
         html.append("  <div class=\"grid-charts\">\n")
@@ -211,7 +231,63 @@ public class HtmlDashboardGenerator {
 
         html.append("      </tbody>\n")
             .append("    </table>\n")
-            .append("  </div>\n");
+            .append("  </div>\n\n");
+
+        // Customer Reviews Section (if present)
+        if (analyzedReviews != null && !analyzedReviews.isEmpty()) {
+            html.append("  <div class=\"card\" style=\"margin-top: 2rem;\">\n")
+                .append("    <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;\">\n")
+                .append("      <div class=\"card-title\" style=\"margin-bottom: 0;\">Customer Reviews & Recommendations (").append(analyzedReviews.size()).append(")</div>\n")
+                .append("    </div>\n")
+                .append("    <table>\n")
+                .append("      <thead>\n")
+                .append("        <tr>\n")
+                .append("          <th style=\"width: 150px;\">Recommendation</th>\n")
+                .append("          <th style=\"width: 120px;\">Sentiment</th>\n")
+                .append("          <th>Customer Feedback</th>\n")
+                .append("          <th style=\"width: 170px;\">Date</th>\n")
+                .append("        </tr>\n")
+                .append("      </thead>\n")
+                .append("      <tbody>\n");
+
+            for (AnalyzedReview ar : analyzedReviews) {
+                String recBadge;
+                if ("positive".equalsIgnoreCase(ar.review().recommendationType())) {
+                    recBadge = "<span class=\"badge badge-success\">👍 Recommends</span>";
+                } else if ("negative".equalsIgnoreCase(ar.review().recommendationType())) {
+                    recBadge = "<span class=\"badge badge-danger\">👎 Doesn't Rec.</span>";
+                } else if (ar.review().rating() > 0) {
+                    recBadge = "<span class=\"badge badge-warning\">⭐ " + ar.review().rating() + " / 5</span>";
+                } else {
+                    recBadge = "<span class=\"badge badge-neutral\">Review</span>";
+                }
+
+                String sentBadge;
+                switch (ar.score().level()) {
+                    case CRITICAL_NEGATIVE -> sentBadge = "<span class=\"badge badge-danger\">CRITICAL (" + String.format("%.2f", ar.score().compound()) + ")</span>";
+                    case WARNING_NEGATIVE -> sentBadge = "<span class=\"badge badge-warning\">WARNING (" + String.format("%.2f", ar.score().compound()) + ")</span>";
+                    case POSITIVE -> sentBadge = "<span class=\"badge badge-success\">POSITIVE (" + String.format("%.2f", ar.score().compound()) + ")</span>";
+                    default -> sentBadge = "<span class=\"badge badge-neutral\">NEUTRAL</span>";
+                }
+
+                String text = ar.review().reviewText() != null && !ar.review().reviewText().isBlank()
+                        ? escapeHtml(ar.review().reviewText())
+                        : "<span style=\"color: var(--text-muted); font-style: italic;\">[Rating only, no written text]</span>";
+
+                String dateStr = ar.review().createdTime() != null ? DATE_FMT.format(ar.review().createdTime()) : "-";
+
+                html.append("        <tr>\n")
+                    .append("          <td>").append(recBadge).append("</td>\n")
+                    .append("          <td>").append(sentBadge).append("</td>\n")
+                    .append("          <td><div class=\"comment-text\">").append(text).append("</div></td>\n")
+                    .append("          <td style=\"color: var(--text-muted);\">").append(dateStr).append("</td>\n")
+                    .append("        </tr>\n");
+            }
+
+            html.append("      </tbody>\n")
+                .append("    </table>\n")
+                .append("  </div>\n\n");
+        }
 
         // Inline Chart.js script & search filter script
         html.append("</div>\n")
