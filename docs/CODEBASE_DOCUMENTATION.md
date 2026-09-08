@@ -41,6 +41,7 @@ The application is structured as a pipeline with four decoupled stages:
     - output/dashboard.html
     - output/comments.json
     - output/reviews.json
+    - output/rating_summary.json
 ```
 
 ### Execution Lifecycle (in `App.main`):
@@ -52,9 +53,13 @@ The application is structured as a pipeline with four decoupled stages:
 3. **Sentiment Analysis (`VaderAnalyzer.analyze()`):**
    - Each comment message is tokenized and scored using a 7,500+ token VADER lexicon, taking into account capitalizations, exclamation intensity, negation words, and booster adverbs.
    - Each customer review text is analyzed with the same VADER engine.
-4. **Data Export:** Serializes analyzed comments to `output/comments.json` and analyzed reviews to `output/reviews.json`.
-5. **Console KPI Summary:** Prints high-level metrics for posts, comments, negative sentiment rates, page star rating, and review counts.
-6. **Dashboard Generation (`HtmlDashboardGenerator.generateReport()`):** Emits a self-contained HTML file (`output/dashboard.html`) complete with dark-mode styling, Chart.js donut visualizer, Page Rating KPI card, customer recommendations table, and instant JavaScript search filtering.
+4. **5-Star Rating Calculation (`StarRatingBreakdown.compute()`):**
+   - Maps each analyzed comment to 1–5 stars based on VADER compound thresholds ($\ge 0.50 \to 5★$, $\ge 0.05 \to 4★$, $\ge -0.05 \to 3★$, $\ge -0.50 \to 2★$, $<-0.50 \to 1★$).
+   - Maps each customer review to 1–5 stars (explicit star rating if $>0$, or 5★ for positive recommendations / 1★ for negative recommendations).
+   - Computes weighted average rating ($1.0$ to $5.0$) and counts/percentages for each star level ($5★$ down to $1★$).
+5. **Data Export:** Serializes analyzed comments to `output/comments.json`, analyzed reviews to `output/reviews.json`, and rating breakdown to `output/rating_summary.json`.
+6. **Console KPI Summary:** Prints high-level metrics for posts, comments, 5-star distribution breakdown, page star rating, and review counts.
+7. **Dashboard Generation (`HtmlDashboardGenerator.generateReport()`):** Emits a self-contained HTML file (`output/dashboard.html`) complete with dark-mode styling, Chart.js donut visualizer, 5-Star Rating KPI Card, 5-Star horizontal distribution bars, Meta Page Rating card, customer recommendations table, and instant JavaScript search filtering.
 
 ---
 
@@ -147,12 +152,29 @@ Categorical classification derived from compound score:
 #### 6. `SentimentScore(double compound, double positive, double neutral, double negative, SentimentLevel level)`
 - Holds the raw sentiment distribution ratios (`positive`, `neutral`, `negative` summing to 1.0) and the normalized `compound` score ($-1.0$ to $+1.0$).
 - **Method `isNegative()`:** Returns `true` if `level == CRITICAL_NEGATIVE || level == WARNING_NEGATIVE`.
+- **Method `starRating()`:** Returns an integer star rating on a 1–5 scale:
+  - 5 stars: $compound \ge 0.50$
+  - 4 stars: $0.05 \le compound < 0.50$
+  - 3 stars: $-0.05 \le compound < 0.05$
+  - 2 stars: $-0.50 \le compound < -0.05$
+  - 1 star: $compound < -0.50$
 
 #### 7. `AnalyzedComment(FacebookComment comment, String postId, String postSnippet, SentimentScore score)`
 - An enriched comment linking the original `FacebookComment`, parent post ID, a truncated preview of parent post, and calculated `SentimentScore`.
 
 #### 8. `AnalyzedReview(FacebookReview review, SentimentScore score)`
 - An enriched customer review pairing the raw `FacebookReview` with its VADER `SentimentScore`.
+
+#### 9. `StarRatingBreakdown(int totalCount, int fiveStarCount, int fourStarCount, int threeStarCount, int twoStarCount, int oneStarCount, double averageRating, int totalPositive, int totalNegative)`
+- Represents aggregated 5-star rating metrics computed across both comments and customer reviews.
+- **Factory Method:**
+  - `compute(List<AnalyzedComment> comments, List<AnalyzedReview> reviews)`: Aggregates all feedback, computes weighted average star rating ($1.0$ to $5.0$), tracks individual counts, and total positive/negative counts.
+- **Mapping Helpers:**
+  - `mapScoreToStars(SentimentScore score)`: Maps sentiment compound score to 1–5 stars.
+  - `mapReviewToStars(AnalyzedReview review)`: Maps customer review to 1–5 stars (explicit rating if $>0$, or 5★ for positive recommendation / 1★ for negative).
+- **Formatters & Percentages:**
+  - `formattedStars()`: Generates graphical star string (e.g., `★★★★☆`).
+  - `fiveStarPercent()`, `fourStarPercent()`, `threeStarPercent()`, `twoStarPercent()`, `oneStarPercent()`: Percentage distributions for breakdown bars.
 
 ---
 
@@ -255,21 +277,24 @@ Categorical classification derived from compound score:
 
 ### Component 5: `HtmlDashboardGenerator.java`
 **Package:** `com.fbscraper.report`  
-**Purpose:** Produces an interactive HTML5/CSS3 dashboard highlighting negative comments, customer reviews, rating KPIs, and Chart.js visualizations.
+**Purpose:** Produces an interactive HTML5/CSS3 dashboard highlighting negative comments, customer reviews, 5-star rating breakdowns, rating KPIs, and Chart.js visualizations.
 
 #### Key Methods:
 
 ##### `public void generateReport(List<FacebookPost> posts, List<AnalyzedComment> comments, PageRatingSummary ratingSummary, List<AnalyzedReview> reviews, Path outputPath)`
+##### `public void generateReport(List<FacebookPost> posts, List<AnalyzedComment> comments, PageRatingSummary ratingSummary, List<AnalyzedReview> reviews, StarRatingBreakdown starRating, Path outputPath)`
 - Constructs the full HTML DOM and writes it to disk.
 - **Metrics Calculated:**
-  - `totalPosts`, `totalComments`, `positiveCount`, `neutralCount`, `warningCount`, `criticalCount`, `totalNegative`.
+  - `totalPosts`, `totalComments`, `totalReviews`, `positiveCount`, `neutralCount`, `warningCount`, `criticalCount`, `totalNegative`.
   - Negative and positive feedback percentages.
-  - Overall Page Rating (rendered as a KPI card with star icon and total rating count).
+  - Overall 5-Star calculated rating and graphical star string.
+  - Meta Page Rating (if available from Graph API).
 - **Dashboard Sections:**
-  - **KPI Cards:** Total Posts, Total Comments, Overall Page Rating (⭐ `4.8 / 5.0`), Negative Feedback Rate %, Health Status badge.
-  - **Sentiment Visualizer:** Chart.js donut chart with Positive, Neutral, Warning Negative, and Critical Negative slices.
-  - **Flagged Negative Comments Table:** Sorted by severity, showing sentiment badges, parent post context, comment text, timestamp, and live JavaScript search.
-  - **Customer Reviews & Recommendations Table:** Displays all customer reviews with recommendation type badges (`👍 Recommends` / `👎 Doesn't Rec.`), star ratings, review text, and sentiment classification.
+  - **KPI Cards:** Total Posts, Total Comments, Customer Reviews, Overall 5-Star Rating (⭐ `4.2 / 5.0`), Meta Official Rating, Positive Feedback Rate %, Negative Feedback Rate %, Health Status badge.
+  - **5-Star Rating Breakdown Card:** Horizontal distribution bars (5★ to 1★ counts and percentages) styled after Amazon/Google reviews.
+  - **Sentiment Visualizer:** Chart.js donut chart with Positive, Neutral, and Negative slices.
+  - **Flagged Negative Comments Table:** Sorted by severity, showing ⭐ star badge, severity badges, parent post context, comment text, timestamp, and live JavaScript search.
+  - **Customer Reviews & Recommendations Table:** Displays all customer reviews with ⭐ star badge, recommendation type badges (`👍 Recommends` / `👎 Doesn't Rec.`), review text, and sentiment classification.
 
 ---
 
@@ -283,9 +308,10 @@ Categorical classification derived from compound score:
 3. Fetches overall page rating summary via `client.fetchPageRatingSummary()`.
 4. Fetches customer reviews and recommendations via `client.fetchPageReviews()`.
 5. Analyzes all comments and review texts with `VaderAnalyzer`.
-6. Exports `output/comments.json` and `output/reviews.json`.
-7. Generates `output/dashboard.html`.
-8. Prints console KPIs and top flagged negative feedback.
+6. Calculates 5-star rating distribution and weighted score via `StarRatingBreakdown.compute()`.
+7. Exports `output/comments.json`, `output/reviews.json`, and `output/rating_summary.json`.
+8. Generates `output/dashboard.html`.
+9. Prints console KPIs, 5-star distribution breakdown, and top flagged negative feedback.
 
 ---
 
@@ -318,10 +344,11 @@ app.negative.threshold=-0.05
 
 ## 4. Test Suite Architecture
 
-The project has **26 automated tests** across 6 test classes with 100% pass rate:
+The project has **32 automated tests** across 7 test classes with 100% pass rate:
 1. `AppConfigTest`: Tests default configurations and property loading from files.
 2. `FacebookClientTest`: Tests JSON parsing against feed structures, cursor pagination, `fetchPageRatingSummary()`, and `fetchPageReviews()`.
 3. `ModelTest`: Tests immutability and defensive copying of comments, `PageRatingSummary`, `FacebookReview`, and `AnalyzedReview`.
-4. `VaderAnalyzerTest` (8 tests): Tests punctuation boost, caps emphasis, negation handling, boosters, empty inputs.
-5. `HtmlDashboardGeneratorTest`: Validates HTML generation, KPI cards, Page Rating display, and reviews table rendering.
-6. `AppE2ETest`: End-to-end integration test verifying that running `App.main()` executes the pipeline and generates `output/dashboard.html`, `output/comments.json`, and `output/reviews.json`.
+4. `StarRatingBreakdownTest`: Tests 5-star rating computations, distribution percentages, comment compound score mapping, and customer review mappings.
+5. `VaderAnalyzerTest` (8 tests): Tests punctuation boost, caps emphasis, negation handling, boosters, empty inputs.
+6. `HtmlDashboardGeneratorTest`: Validates HTML generation, KPI cards, 5-star breakdown bars, Page Rating display, and reviews table rendering.
+7. `AppE2ETest`: End-to-end integration test verifying that running `App.main()` executes the pipeline and generates `output/dashboard.html`, `output/comments.json`, `output/reviews.json`, and `output/rating_summary.json`.

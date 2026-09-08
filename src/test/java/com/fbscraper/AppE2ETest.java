@@ -52,23 +52,29 @@ class AppE2ETest {
         // Generate comments and reviews JSON
         Path jsonPath = Path.of("output/test_comments.json");
         Path reviewsJsonPath = Path.of("output/test_reviews.json");
+        Path ratingJsonPath = Path.of("output/test_rating_summary.json");
         if (jsonPath.getParent() != null) {
             Files.createDirectories(jsonPath.getParent());
         }
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
         mapper.writerWithDefaultPrettyPrinter().writeValue(reviewsJsonPath.toFile(), analyzedReviews);
+        StarRatingBreakdown starRating = StarRatingBreakdown.compute(analyzedComments, analyzedReviews);
+        mapper.writerWithDefaultPrettyPrinter().writeValue(ratingJsonPath.toFile(), starRating);
 
         // Verify outputs
         assertThat(Files.exists(dashboard)).isTrue();
         assertThat(Files.exists(jsonPath)).isTrue();
         assertThat(Files.exists(reviewsJsonPath)).isTrue();
+        assertThat(Files.exists(ratingJsonPath)).isTrue();
 
         String html = Files.readString(dashboard);
         assertThat(html).contains("Facebook Scraper Dashboard");
         assertThat(html).contains("This update is HORRIBLE!");
         assertThat(html).contains("1 positive comments");
-        assertThat(html).contains("Overall Page Rating");
+        assertThat(html).contains("Overall 5-Star Rating");
+        assertThat(html).contains("5-Star Rating Breakdown");
+        assertThat(html).contains("Meta Official Rating");
         assertThat(html).contains("4.5");
         assertThat(html).contains("Outstanding service, highly recommended!");
 
@@ -81,9 +87,14 @@ class AppE2ETest {
         assertThat(revJson).contains("Outstanding service, highly recommended!");
         assertThat(revJson).contains("POSITIVE");
 
+        String ratingJson = Files.readString(ratingJsonPath);
+        assertThat(ratingJson).contains("averageRating");
+        assertThat(ratingJson).contains("fiveStarCount");
+
         // Clean up test outputs
         Files.deleteIfExists(dashboard);
         Files.deleteIfExists(jsonPath);
         Files.deleteIfExists(reviewsJsonPath);
+        Files.deleteIfExists(ratingJsonPath);
     }
 }

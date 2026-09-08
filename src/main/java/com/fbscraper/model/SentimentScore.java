@@ -24,4 +24,13 @@ public record SentimentScore(
     public boolean isNegative() {
         return level == SentimentLevel.CRITICAL_NEGATIVE || level == SentimentLevel.WARNING_NEGATIVE;
     }
+
+    /**
+     * Resolves the corresponding star rating (1 to 5) from this score's compound metric.
+     *
+     * @return an integer star rating between 1 and 5
+     */
+    public int starRating() {
+        return StarRatingBreakdown.mapScoreToStars(this);
+    }
 }
