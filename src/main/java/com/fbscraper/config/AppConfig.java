@@ -42,9 +42,22 @@ public record AppConfig(
      * @throws IllegalStateException if the config.properties file cannot be found
      */
     public static AppConfig load() {
-        Path configFile = Path.of("config.properties");
-        if (!Files.exists(configFile)) {
-            configFile = Path.of("src/main/resources/config.properties");
+        Path rootConfig = Path.of("config.properties");
+        Path resourceConfig = Path.of("src/main/resources/config.properties");
+        Path configFile;
+
+        if (Files.exists(rootConfig) && Files.exists(resourceConfig)) {
+            try {
+                var rootTime = Files.getLastModifiedTime(rootConfig).toInstant();
+                var resourceTime = Files.getLastModifiedTime(resourceConfig).toInstant();
+                configFile = resourceTime.isAfter(rootTime) ? resourceConfig : rootConfig;
+            } catch (IOException e) {
+                configFile = rootConfig;
+            }
+        } else if (Files.exists(rootConfig)) {
+            configFile = rootConfig;
+        } else {
+            configFile = resourceConfig;
         }
 
         if (!Files.exists(configFile)) {
