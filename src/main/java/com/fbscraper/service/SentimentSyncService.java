@@ -2,11 +2,16 @@ package com.fbscraper.service;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.AnalyzedConversation;
+import com.fbscraper.model.AnalyzedMessage;
 import com.fbscraper.model.CommentAnalysis;
 import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookConversation;
+import com.fbscraper.model.FacebookMessage;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
 import com.fbscraper.model.ReactionSummary;
@@ -19,6 +24,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Runs one complete synchronization: fetch Page comments and reactions, then analyze the comments.
@@ -28,24 +34,115 @@ public final class SentimentSyncService {
     private final FacebookClient facebookClient;
     private final VaderAnalyzer analyzer;
     private final AppConfig config;
+    private final DataExportService dataExportService;
 
     public SentimentSyncService(AppConfig config) {
-        this(config, new FacebookClient(config), VaderAnalyzer.createDefault());
+        this(config, new FacebookClient(config), VaderAnalyzer.createDefault(), new DataExportService());
     }
 
     public SentimentSyncService(AppConfig config, FacebookClient facebookClient, VaderAnalyzer analyzer) {
+        this(config, facebookClient, analyzer, new DataExportService());
+    }
+
+    public SentimentSyncService(AppConfig config, FacebookClient facebookClient, VaderAnalyzer analyzer, DataExportService dataExportService) {
         this.config = config;
         this.facebookClient = facebookClient;
         this.analyzer = analyzer;
+        this.dataExportService = dataExportService;
+    }
+
+    public Optional<SyncResult> loadPreviousResult() {
+        return dataExportService.loadLatest(config.negativeThreshold());
+    }
+
+    public DataExportService dataExportService() {
+        return dataExportService;
     }
 
     public SyncResult sync() {
         List<FacebookPost> posts = facebookClient.fetchPageFeed();
-        PageRatingSummary pageRating = facebookClient.fetchPageRatingSummary();
+        PageRatingSummary initialRating = facebookClient.fetchPageRatingSummary();
         List<FacebookReview> fetchedReviews = facebookClient.fetchPageReviews();
+        List<FacebookConversation> fetchedConversations = facebookClient.fetchPageConversations();
         List<CommentAnalysis> comments = new ArrayList<>();
         List<PostReactionAnalysis> postReactions = new ArrayList<>();
         List<AnalyzedReview> reviews = new ArrayList<>();
+        List<AnalyzedConversation> conversations = new ArrayList<>();
+
+        int totalCustomerMessages = 0;
+        int totalPageReplies = 0;
+        int msgPositive = 0;
+        int msgNeutral = 0;
+        int msgWarning = 0;
+        int msgCritical = 0;
+
+        for (FacebookConversation conv : fetchedConversations) {
+            List<AnalyzedMessage> analyzedMessages = new ArrayList<>();
+            int custCount = 0;
+            int pageCount = 0;
+            SentimentLevel worstLevel = null;
+
+            List<FacebookMessage> sortedMessages = new ArrayList<>(conv.messages());
+            sortedMessages.sort(Comparator.comparing(FacebookMessage::createdTime));
+
+            for (FacebookMessage msg : sortedMessages) {
+                boolean isFromPage = msg.from() != null
+                        && config.pageId() != null
+                        && !config.pageId().isBlank()
+                        && config.pageId().equals(msg.from().id());
+
+                if (isFromPage) {
+                    pageCount++;
+                    totalPageReplies++;
+                    analyzedMessages.add(new AnalyzedMessage(msg, true, null, false));
+                } else {
+                    custCount++;
+                    totalCustomerMessages++;
+                    SentimentScore score = analyzer.analyze(msg.message());
+                    boolean flagged = score.compound() <= config.negativeThreshold();
+
+                    switch (score.level()) {
+                        case POSITIVE -> msgPositive++;
+                        case NEUTRAL -> msgNeutral++;
+                        case WARNING_NEGATIVE -> msgWarning++;
+                        case CRITICAL_NEGATIVE -> msgCritical++;
+                    }
+
+                    worstLevel = prioritizeSentiment(worstLevel, score.level());
+                    analyzedMessages.add(new AnalyzedMessage(msg, false, score, flagged));
+                }
+            }
+
+            SentimentLevel threadSentiment = worstLevel != null ? worstLevel : SentimentLevel.NEUTRAL;
+            conversations.add(new AnalyzedConversation(
+                    conv.id(),
+                    conv.updatedTime(),
+                    conv.participants(),
+                    analyzedMessages,
+                    threadSentiment,
+                    custCount,
+                    pageCount
+            ));
+        }
+
+        conversations.sort(Comparator.comparing(AnalyzedConversation::updatedTime).reversed());
+
+        int totalMsgNegative = msgWarning + msgCritical;
+        double messageNegativeRate = totalCustomerMessages == 0
+                ? 0.0
+                : Math.round((totalMsgNegative * 1000.0) / totalCustomerMessages) / 10.0;
+
+        MessageSentimentSummary messageSummary = new MessageSentimentSummary(
+                conversations.size(),
+                totalCustomerMessages + totalPageReplies,
+                totalCustomerMessages,
+                totalPageReplies,
+                msgPositive,
+                msgNeutral,
+                msgWarning,
+                msgCritical,
+                messageNegativeRate
+        );
 
         for (FacebookPost post : posts) {
             String snippet = createSnippet(post.message());
@@ -85,16 +182,38 @@ public final class SentimentSyncService {
         int warning = countByLevel(comments, SentimentLevel.WARNING_NEGATIVE);
         int critical = countByLevel(comments, SentimentLevel.CRITICAL_NEGATIVE);
         int negative = (int) comments.stream().filter(CommentAnalysis::flagged).count();
+        double negativeRate = comments.isEmpty()
+                ? 0.0
+                : Math.round((negative * 1000.0) / comments.size()) / 10.0;
         int negativeReviews = (int) reviews.stream()
                 .filter(review -> review.score().compound() <= config.negativeThreshold())
                 .count();
         ReactionSummary reactionTotals = sumReactions(posts);
         ReactionSummary commentReactionTotals = sumCommentReactions(posts);
-        double negativeRate = comments.isEmpty()
-                ? 0.0
-                : Math.round((negative * 1000.0) / comments.size()) / 10.0;
+        int yesCount = (int) reviews.stream()
+                .filter(r -> r.review() != null && r.review().isPositiveRecommendation())
+                .count();
+        int noCount = (int) reviews.stream()
+                .filter(r -> r.review() != null && r.review().isNegativeRecommendation())
+                .count();
+        int totalReviews = reviews.size();
 
-        return new SyncResult(
+        int updatedRatingCount = initialRating.ratingCount() > 0
+                ? Math.max(initialRating.ratingCount(), totalReviews)
+                : (yesCount + noCount > 0 ? (yesCount + noCount) : totalReviews);
+
+        double overallStarRating = initialRating.hasRatings() && initialRating.overallStarRating() > 0.0
+                ? initialRating.overallStarRating()
+                : (totalReviews > 0 ? Math.round(((double) yesCount / totalReviews) * 50.0) / 10.0 : 0.0);
+
+        PageRatingSummary pageRating = new PageRatingSummary(
+                overallStarRating,
+                updatedRatingCount,
+                yesCount,
+                noCount
+        );
+
+        SyncResult result = new SyncResult(
                 Instant.now(),
                 config.negativeThreshold(),
                 posts.size(),
@@ -114,8 +233,29 @@ public final class SentimentSyncService {
                 pageRating,
                 reviews.size(),
                 negativeReviews,
-                reviews
+                reviews,
+                messageSummary,
+                conversations
         );
+
+        dataExportService.export(result);
+        return result;
+    }
+
+    private SentimentLevel prioritizeSentiment(SentimentLevel current, SentimentLevel candidate) {
+        if (current == null) {
+            return candidate;
+        }
+        if (current == SentimentLevel.CRITICAL_NEGATIVE || candidate == SentimentLevel.CRITICAL_NEGATIVE) {
+            return SentimentLevel.CRITICAL_NEGATIVE;
+        }
+        if (current == SentimentLevel.WARNING_NEGATIVE || candidate == SentimentLevel.WARNING_NEGATIVE) {
+            return SentimentLevel.WARNING_NEGATIVE;
+        }
+        if (current == SentimentLevel.POSITIVE || candidate == SentimentLevel.POSITIVE) {
+            return SentimentLevel.POSITIVE;
+        }
+        return SentimentLevel.NEUTRAL;
     }
 
     private SentimentScore analyzeReview(FacebookReview review) {

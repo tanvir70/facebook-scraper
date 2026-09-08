@@ -5,6 +5,9 @@ import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.AnalyzedComment;
 import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookConversation;
+import com.fbscraper.model.FacebookMessage;
+import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.PageRatingSummary;
@@ -14,7 +17,9 @@ import com.fbscraper.model.SyncResult;
 import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
 import com.fbscraper.service.SentimentSyncService;
+import com.fbscraper.service.DataExportService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppE2ETest {
 
     @Test
-    void shouldRunTheDashboardSyncPipeline() {
+    void shouldRunTheDashboardSyncPipeline(@TempDir Path tempDir) {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
         FacebookComment comment = new FacebookComment(
@@ -43,6 +48,11 @@ class AppE2ETest {
                 new ReactionSummary(10, 4, 1, 1, 1, 0, 1, 2)
         );
         FacebookReview review = new FacebookReview(now, "negative", "Very poor support", 2, true);
+        FacebookParticipant customer = new FacebookParticipant("u1", "Bob Customer");
+        FacebookParticipant page = new FacebookParticipant("123", "Support Page");
+        FacebookMessage customerMsg = new FacebookMessage("m1", "My order is terribly broken!", now, customer, List.of(page));
+        FacebookMessage pageMsg = new FacebookMessage("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
+        FacebookConversation conversation = new FacebookConversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
 
         FacebookClient client = new FacebookClient(config, request -> {
             throw new AssertionError("The test client must not make HTTP calls");
@@ -61,12 +71,18 @@ class AppE2ETest {
             public List<FacebookReview> fetchPageReviews() {
                 return List.of(review);
             }
+
+            @Override
+            public List<FacebookConversation> fetchPageConversations() {
+                return List.of(conversation);
+            }
         };
 
         SyncResult result = new SentimentSyncService(
                 config,
                 client,
-                VaderAnalyzer.createDefault()
+                VaderAnalyzer.createDefault(),
+                new DataExportService(tempDir)
         ).sync();
 
         assertThat(result.totalPosts()).isEqualTo(1);
@@ -78,6 +94,15 @@ class AppE2ETest {
         assertThat(result.totalReviews()).isEqualTo(1);
         assertThat(result.negativeReviews()).isEqualTo(1);
         assertThat(result.pageRating().overallStarRating()).isEqualTo(3.8);
+        assertThat(result.messageSummary().totalConversations()).isEqualTo(1);
+        assertThat(result.messageSummary().totalMessages()).isEqualTo(2);
+        assertThat(result.messageSummary().customerMessages()).isEqualTo(1);
+        assertThat(result.messageSummary().pageReplies()).isEqualTo(1);
+        assertThat(result.messageSummary().negativeRate()).isEqualTo(100.0);
+        assertThat(result.conversations()).hasSize(1);
+        assertThat(result.conversations().get(0).messages().get(0).isFromPage()).isFalse();
+        assertThat(result.conversations().get(0).messages().get(0).flagged()).isTrue();
+        assertThat(result.conversations().get(0).messages().get(1).isFromPage()).isTrue();
     }
 
     @Test
