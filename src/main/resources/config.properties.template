@@ -3,6 +3,7 @@
 fb.page.id=YOUR_FACEBOOK_PAGE_ID
 
 # Generate a Page Access Token with permissions: pages_show_list, pages_read_engagement, pages_read_user_content
+# pages_read_engagement is required for Page post reaction counts.
 # from Meta Developer Portal (https://developers.facebook.com/tools/explorer/)
 fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 

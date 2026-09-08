@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.ReactionSummary;
 
 import java.io.IOException;
 import java.net.URI;
@@ -25,10 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Client for fetching and parsing Facebook Page feed posts and nested comments.
- * <p>
- * Supports both live calls to the Meta Graph API via {@link HttpClient} and
- * offline mock execution using a local JSON feed file.
+ * Client for fetching and parsing Facebook Page posts, comments, and reaction counts.
+ * Supports live Meta Graph API calls and offline mock execution.
  */
 public class FacebookClient {
 
@@ -40,47 +39,23 @@ public class FacebookClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Constructs a {@code FacebookClient} using the default sample feed path and default HTTP client.
-     *
-     * @param config the application configuration
-     */
     public FacebookClient(AppConfig config) {
         this(config, Path.of("data/sample_feed.json"), HttpClient.newHttpClient());
     }
 
-    /**
-     * Constructs a {@code FacebookClient} with a custom sample feed path and default HTTP client.
-     *
-     * @param config         the application configuration
-     * @param sampleDataPath path to the sample JSON file
-     */
     public FacebookClient(AppConfig config, Path sampleDataPath) {
         this(config, sampleDataPath, HttpClient.newHttpClient());
     }
 
-    /**
-     * Full dependency-injection constructor for testing and customization.
-     *
-     * @param config         the application configuration
-     * @param sampleDataPath path to the sample JSON file
-     * @param httpClient     the {@link HttpClient} instance for live API calls
-     */
     public FacebookClient(AppConfig config, Path sampleDataPath, HttpClient httpClient) {
         this.config = config;
         this.sampleDataPath = sampleDataPath;
         this.httpClient = httpClient;
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
     /**
-     * Fetches the page feed (posts and nested comments).
-     * <p>
-     * If {@link AppConfig#offlineMode()} is true, this loads the local sample feed file.
-     * Live mode requires both a Page ID and Page access token.
-     *
-     * @return a list of parsed {@link FacebookPost} instances
+     * Fetches the Page feed with nested comments and aggregated reactions.
      */
     public List<FacebookPost> fetchPageFeed() {
         if (config.offlineMode()) {
@@ -88,67 +63,52 @@ public class FacebookClient {
             return loadSampleFeed();
         }
 
-        if (config.pageId() == null || config.pageId().isBlank() ||
-            config.accessToken() == null || config.accessToken().isBlank()) {
-            throw new IllegalStateException("Live mode requires fb.page.id and a Facebook Page access token");
-        }
-
-        String url = buildFeedUrl();
-
-        System.out.println("[FacebookClient] Calling Facebook Graph API: " + config.apiVersion() + "/" + config.pageId());
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + config.accessToken())
-                .timeout(Duration.ofSeconds(15))
-                .GET()
-                .build();
-
-        try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                return parseFeedJson(response.body());
-            } else {
-                throw new RuntimeException("Facebook API error [HTTP " + response.statusCode() + "]: " + response.body());
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Facebook Graph API request was interrupted", e);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to call Facebook Graph API: " + e.getMessage(), e);
-        }
+        validateLiveCredentials();
+        System.out.println("[FacebookClient] Fetching Page posts, comments, and reactions");
+        return parseFeedJson(executeGet(buildFeedUrl()));
     }
 
     /**
-     * Parses Facebook Graph API JSON feed response into a list of {@link FacebookPost} domain objects.
-     *
-     * @param json raw JSON string from Facebook Graph API or mock data
-     * @return a list of parsed {@link FacebookPost} instances
+     * Parses a Graph API Page feed response into domain objects.
      */
     public List<FacebookPost> parseFeedJson(String json) {
         List<FacebookPost> posts = new ArrayList<>();
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode dataArray = root.path("data");
-            if (dataArray.isArray()) {
-                for (JsonNode postNode : dataArray) {
-                    String id = postNode.path("id").asText("");
-                    String message = postNode.path("message").asText("");
-                    Instant createdTime = parseInstant(postNode.path("created_time").asText());
+            if (!dataArray.isArray()) {
+                return posts;
+            }
 
-                    List<FacebookComment> comments = new ArrayList<>();
-                    JsonNode commentsData = postNode.path("comments").path("data");
-                    if (commentsData.isArray()) {
-                        for (JsonNode commentNode : commentsData) {
-                            String commentId = commentNode.path("id").asText("");
-                            String commentMsg = commentNode.path("message").asText("");
-                            Instant commentTime = parseInstant(commentNode.path("created_time").asText());
-                            comments.add(new FacebookComment(commentId, commentMsg, commentTime));
-                        }
+            for (JsonNode postNode : dataArray) {
+                String id = postNode.path("id").asText("");
+                String message = postNode.path("message").asText("");
+                Instant createdTime = parseInstant(postNode.path("created_time").asText());
+
+                List<FacebookComment> comments = new ArrayList<>();
+                JsonNode commentsData = postNode.path("comments").path("data");
+                if (commentsData.isArray()) {
+                    for (JsonNode commentNode : commentsData) {
+                        comments.add(new FacebookComment(
+                                commentNode.path("id").asText(""),
+                                commentNode.path("message").asText(""),
+                                parseInstant(commentNode.path("created_time").asText())
+                        ));
                     }
-
-                    posts.add(new FacebookPost(id, message, createdTime, comments));
                 }
+
+                ReactionSummary reactions = new ReactionSummary(
+                        reactionCount(postNode, "reactions"),
+                        reactionCount(postNode, "like"),
+                        reactionCount(postNode, "love"),
+                        reactionCount(postNode, "care"),
+                        reactionCount(postNode, "haha"),
+                        reactionCount(postNode, "wow"),
+                        reactionCount(postNode, "sad"),
+                        reactionCount(postNode, "angry")
+                );
+
+                posts.add(new FacebookPost(id, message, createdTime, comments, reactions));
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Facebook feed JSON", e);
@@ -159,20 +119,52 @@ public class FacebookClient {
     private List<FacebookPost> loadSampleFeed() {
         try {
             if (Files.exists(sampleDataPath)) {
-                String json = Files.readString(sampleDataPath);
-                return parseFeedJson(json);
+                return parseFeedJson(Files.readString(sampleDataPath));
             }
-            // Classpath fallback
             try (var in = getClass().getClassLoader().getResourceAsStream("sample_feed.json")) {
                 if (in != null) {
-                    String json = new String(in.readAllBytes());
-                    return parseFeedJson(json);
+                    return parseFeedJson(new String(in.readAllBytes(), StandardCharsets.UTF_8));
                 }
             }
             throw new IllegalStateException("Sample feed file not found at " + sampleDataPath.toAbsolutePath());
         } catch (IOException e) {
             throw new RuntimeException("Error reading sample feed: " + e.getMessage(), e);
         }
+    }
+
+    private void validateLiveCredentials() {
+        if (config.pageId() == null || config.pageId().isBlank()
+                || config.accessToken() == null || config.accessToken().isBlank()) {
+            throw new IllegalStateException("Live mode requires fb.page.id and a Facebook Page access token");
+        }
+    }
+
+    private String executeGet(String url) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + config.accessToken())
+                .timeout(Duration.ofSeconds(20))
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            throw new RuntimeException(
+                    "Facebook API error [HTTP " + response.statusCode() + "]: " + response.body()
+            );
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Facebook Graph API request was interrupted", e);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to call Facebook Graph API: " + e.getMessage(), e);
+        }
+    }
+
+    private int reactionCount(JsonNode postNode, String field) {
+        return postNode.path(field).path("summary").path("total_count").asInt(0);
     }
 
     private Instant parseInstant(String text) {
@@ -191,13 +183,20 @@ public class FacebookClient {
     }
 
     /**
-     * Constructs and URL-encodes the target Graph API feed endpoint URI.
-     *
-     * @return the fully qualified and properly encoded URL string
+     * Constructs and URL-encodes the Graph API feed endpoint.
      */
     public String buildFeedUrl() {
         String fieldsParam = URLEncoder.encode(
-                "id,message,created_time,comments{id,message,created_time}",
+                "id,message,created_time,"
+                        + "reactions.limit(0).summary(total_count),"
+                        + "reactions.type(LIKE).limit(0).summary(total_count).as(like),"
+                        + "reactions.type(LOVE).limit(0).summary(total_count).as(love),"
+                        + "reactions.type(CARE).limit(0).summary(total_count).as(care),"
+                        + "reactions.type(HAHA).limit(0).summary(total_count).as(haha),"
+                        + "reactions.type(WOW).limit(0).summary(total_count).as(wow),"
+                        + "reactions.type(SAD).limit(0).summary(total_count).as(sad),"
+                        + "reactions.type(ANGRY).limit(0).summary(total_count).as(angry),"
+                        + "comments{id,message,created_time}",
                 StandardCharsets.UTF_8
         );
         return String.format(

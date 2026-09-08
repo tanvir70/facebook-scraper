@@ -12,15 +12,20 @@ public record SyncResult(
         double negativeThreshold,
         int totalPosts,
         int totalComments,
+        int totalReactions,
+        ReactionSummary reactionTotals,
         int positiveComments,
         int neutralComments,
         int warningComments,
         int criticalComments,
         int negativeComments,
         double negativeRate,
-        List<CommentAnalysis> comments
+        List<CommentAnalysis> comments,
+        List<PostReactionAnalysis> postReactions
 ) {
     public SyncResult {
+        reactionTotals = reactionTotals == null ? ReactionSummary.empty() : reactionTotals;
         comments = comments == null ? List.of() : List.copyOf(comments);
+        postReactions = postReactions == null ? List.of() : List.copyOf(postReactions);
     }
 }

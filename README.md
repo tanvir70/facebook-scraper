@@ -1,16 +1,17 @@
 # Facebook Scraper
 
-A lightweight Java 21 web application that fetches posts and comments from a Facebook Page, evaluates comments locally with VADER sentiment analysis, and displays the results in a browser dashboard.
+A lightweight Java 21 web application that fetches posts, comments, and reaction counts from a Facebook Page, evaluates comments locally with VADER sentiment analysis, and displays the results in a browser dashboard.
 
 ---
 
 ## Features
 
 - **Official Facebook Graph API Integration:** Clean HTTP REST client using native `java.net.http.HttpClient` with Bearer Token authentication.
+- **Post Reaction Analytics:** Fetches total reactions and the `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY` breakdown for every returned post.
 - **Offline / Mock Mode:** Ships with realistic sample data (`data/sample_feed.json`) so you can develop, test, and run the entire pipeline immediately without waiting for Meta Developer App approval.
 - **Local VADER NLP Engine:** Fast in-memory sentiment scoring tailored specifically for social media (accounts for all-caps emphasis, exclamation marks `!`, negation reversal, and booster words).
-- **Sync Now UI:** Starts a local dashboard at `http://localhost:8080`. The button calls `POST /api/sync`, fetches the latest Page data, analyzes every returned comment, and refreshes the results without reloading the page.
-- **Sentiment Dashboard:** Shows post and comment counts, negative rate, sentiment distribution, sync status, filters, and the analyzed comment list.
+- **Sync Now UI:** Starts a local dashboard at `http://localhost:8080`. The button calls `POST /api/sync`, fetches the latest Page data and reactions, analyzes every returned comment, and refreshes the results without reloading the page.
+- **Sentiment Dashboard:** Shows post, comment, and reaction counts, per-post reaction breakdowns, negative rate, sentiment distribution, sync status, filters, and the analyzed comment list.
 - **Small Embedded Server:** Uses the JDK HTTP server and Jackson, with no web framework or frontend build step.
 - **IntelliJ IDEA Ready:** Pre-configured with Maven Wrapper (`./mvnw`).
 
@@ -49,6 +50,8 @@ Use a different port with `--port=9090`.
    - `pages_show_list`
    - `pages_read_engagement`
    - `pages_read_user_content`
+
+`pages_read_engagement` is the permission used to read engagement data such as reaction totals on Page posts.
 4. Use the User token to call `/me/accounts?fields=id,name,access_token,tasks`.
 5. Copy the Page ID and the **Page Access Token** returned for your Page.
 
@@ -104,7 +107,7 @@ facebook-scraper/
 ├── pom.xml                                   # Maven build configuration (Java 21)
 ├── README.md                                 # Documentation & usage guide
 ├── data/
-│   └── sample_feed.json                      # Realistic mock feed for local testing
+│   └── sample_feed.json                      # Mock posts, comments, and reactions
 ├── src/
 │   ├── main/
 │   │   ├── java/com/fbscraper/
@@ -114,6 +117,8 @@ facebook-scraper/
 │   │   │   ├── model/
 │   │   │   │   ├── FacebookPost.java         # Immutable records
 │   │   │   │   ├── FacebookComment.java
+│   │   │   │   ├── ReactionSummary.java      # Total and per-type reaction counts
+│   │   │   │   ├── PostReactionAnalysis.java # UI reaction result per post
 │   │   │   │   ├── SentimentScore.java
 │   │   │   │   ├── SentimentLevel.java
 │   │   │   │   ├── AnalyzedComment.java

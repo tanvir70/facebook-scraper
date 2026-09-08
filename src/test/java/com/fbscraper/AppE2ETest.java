@@ -17,6 +17,10 @@ class AppE2ETest {
 
         assertThat(result.totalPosts()).isEqualTo(2);
         assertThat(result.totalComments()).isEqualTo(8);
+        assertThat(result.totalReactions()).isEqualTo(23);
+        assertThat(result.reactionTotals().like()).isEqualTo(11);
+        assertThat(result.reactionTotals().angry()).isEqualTo(5);
+        assertThat(result.postReactions()).hasSize(2);
         assertThat(result.comments()).anySatisfy(comment -> {
             assertThat(comment.message()).contains("HORRIBLE");
             assertThat(comment.flagged()).isTrue();

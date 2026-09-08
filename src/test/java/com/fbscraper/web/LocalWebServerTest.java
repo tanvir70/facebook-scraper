@@ -37,7 +37,12 @@ class LocalWebServerTest {
             assertThat(dashboard.statusCode()).isEqualTo(200);
             assertThat(dashboard.body()).contains("Sync now", "Customer sentiment");
             assertThat(sync.statusCode()).isEqualTo(200);
-            assertThat(sync.body()).contains("\"totalPosts\":2", "\"totalComments\":8");
+            assertThat(sync.body()).contains(
+                    "\"totalPosts\":2",
+                    "\"totalComments\":8",
+                    "\"totalReactions\":23",
+                    "\"angry\":5"
+            );
         }
     }
 }

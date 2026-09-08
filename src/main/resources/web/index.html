@@ -302,6 +302,46 @@
 
         .results-card { overflow: hidden; }
 
+        .reactions-card {
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .reaction-summary {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .reaction-item {
+            padding: 11px 8px;
+            border-radius: 10px;
+            background: #f7f9fc;
+            color: var(--muted);
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .reaction-item strong {
+            display: block;
+            margin-top: 4px;
+            color: var(--ink);
+            font-size: 18px;
+        }
+
+        .reaction-post {
+            max-width: 390px;
+            line-height: 1.45;
+        }
+
+        .reaction-number {
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+        }
+
         .results-header {
             padding: 20px 22px;
             border-bottom: 1px solid var(--line);
@@ -406,6 +446,7 @@
         @media (max-width: 900px) {
             .stats { grid-template-columns: repeat(2, 1fr); }
             .overview { grid-template-columns: 1fr; }
+            .reaction-summary { grid-template-columns: repeat(4, 1fr); }
         }
 
         @media (max-width: 640px) {
@@ -437,7 +478,7 @@
         <div>
             <p class="eyebrow">Facebook Page</p>
             <h1>Customer sentiment</h1>
-            <p class="hero-copy">Fetch the latest Page comments and analyze their sentiment in one step.</p>
+            <p class="hero-copy">Fetch the latest Page comments and reactions, then analyze customer sentiment in one step.</p>
         </div>
         <button id="syncButton" class="sync-button" type="button">Sync now</button>
     </section>
@@ -461,9 +502,9 @@
             <span id="negativeDetail" class="stat-detail">Configured threshold</span>
         </article>
         <article class="card stat">
-            <span class="stat-label">Positive comments</span>
-            <span id="positiveValue" class="stat-value">—</span>
-            <span class="stat-detail">Positive sentiment</span>
+            <span class="stat-label">Reactions collected</span>
+            <span id="reactionsValue" class="stat-value">—</span>
+            <span class="stat-detail">Across fetched posts</span>
         </article>
     </section>
 
@@ -496,6 +537,46 @@
                 <div class="detail-row"><span>Negative threshold</span><span id="thresholdValue">—</span></div>
             </div>
         </article>
+    </section>
+
+    <section class="card reactions-card">
+        <div class="results-header">
+            <div>
+                <h2>Post reactions</h2>
+                <span id="reactionMeta" class="section-meta">Run a sync to load reactions</span>
+            </div>
+        </div>
+        <div class="reaction-summary" aria-label="Reaction totals by type">
+            <div class="reaction-item">Like<strong id="likeCount">—</strong></div>
+            <div class="reaction-item">Love<strong id="loveCount">—</strong></div>
+            <div class="reaction-item">Care<strong id="careCount">—</strong></div>
+            <div class="reaction-item">Haha<strong id="hahaCount">—</strong></div>
+            <div class="reaction-item">Wow<strong id="wowCount">—</strong></div>
+            <div class="reaction-item">Sad<strong id="sadCount">—</strong></div>
+            <div class="reaction-item">Angry<strong id="angryCount">—</strong></div>
+        </div>
+        <div id="reactionEmpty" class="empty">
+            <strong>No reactions loaded</strong>
+            Click Sync now to fetch reaction totals for each Page post.
+        </div>
+        <div id="reactionTableWrap" class="table-wrap" hidden>
+            <table>
+                <thead>
+                <tr>
+                    <th>Post</th>
+                    <th>Total</th>
+                    <th>Like</th>
+                    <th>Love</th>
+                    <th>Care</th>
+                    <th>Haha</th>
+                    <th>Wow</th>
+                    <th>Sad</th>
+                    <th>Angry</th>
+                </tr>
+                </thead>
+                <tbody id="reactionRows"></tbody>
+            </table>
+        </div>
     </section>
 
     <section class="card results-card">
@@ -583,7 +664,7 @@
         document.getElementById('commentsValue').textContent = result.totalComments;
         document.getElementById('negativeValue').textContent = result.negativeComments;
         document.getElementById('negativeDetail').textContent = `${result.negativeRate.toFixed(1)}% of analyzed comments`;
-        document.getElementById('positiveValue').textContent = result.positiveComments;
+        document.getElementById('reactionsValue').textContent = result.totalReactions;
         document.getElementById('positiveCount').textContent = result.positiveComments;
         document.getElementById('neutralCount').textContent = result.neutralComments;
         document.getElementById('warningCount').textContent = result.warningComments;
@@ -600,7 +681,38 @@
         setWidth('warningBar', result.warningComments / total);
         setWidth('criticalBar', result.criticalComments / total);
         setConnection('ready', `Last synced ${formatTime(result.syncedAt)}`);
+        renderReactions(result);
         renderComments();
+    }
+
+    function renderReactions(result) {
+        const totals = result.reactionTotals || {};
+        ['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+            document.getElementById(`${type}Count`).textContent = totals[type] ?? 0;
+        });
+        document.getElementById('reactionMeta').textContent =
+            `${result.totalReactions} reactions across ${result.totalPosts} posts`;
+
+        const postReactions = result.postReactions || [];
+        document.getElementById('reactionRows').replaceChildren(...postReactions.map(createReactionRow));
+        document.getElementById('reactionTableWrap').hidden = postReactions.length === 0;
+        document.getElementById('reactionEmpty').hidden = postReactions.length > 0;
+    }
+
+    function createReactionRow(post) {
+        const row = document.createElement('tr');
+        const postCell = document.createElement('td');
+        postCell.className = 'reaction-post';
+        postCell.textContent = post.postSnippet || '[No post text]';
+        row.appendChild(postCell);
+
+        ['total', 'like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+            const cell = document.createElement('td');
+            cell.className = 'reaction-number';
+            cell.textContent = post.reactions?.[type] ?? 0;
+            row.appendChild(cell);
+        });
+        return row;
     }
 
     function renderComments() {
