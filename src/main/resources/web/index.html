@@ -521,6 +521,174 @@
             .results-header { align-items: flex-start; flex-direction: column; }
             .connection-text { display: none; }
         }
+
+        /* Messages / Inbox Styles */
+        .messages-layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: 600px;
+            border-top: 1px solid var(--line);
+        }
+
+        .threads-pane {
+            border-right: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            background: #fafbfe;
+            overflow: hidden;
+        }
+
+        .thread-search-box {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .thread-search-box input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            background: var(--surface);
+        }
+
+        .thread-search-box input:focus {
+            border-color: var(--brand);
+        }
+
+        .threads-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .thread-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            cursor: pointer;
+            transition: background 150ms ease;
+        }
+
+        .thread-item:hover {
+            background: #edf2fc;
+        }
+
+        .thread-item.active {
+            background: #e7effc;
+            border-left: 4px solid var(--brand);
+        }
+
+        .thread-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .thread-participant {
+            font-weight: 750;
+            font-size: 13px;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .thread-snippet {
+            font-size: 12px;
+            color: var(--muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.4;
+        }
+
+        .conversation-pane {
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .conversation-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+        }
+
+        .message-stream {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .msg-bubble-wrap {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+        }
+
+        .msg-bubble-wrap.customer {
+            align-self: flex-start;
+        }
+
+        .msg-bubble-wrap.page {
+            align-self: flex-end;
+        }
+
+        .msg-bubble {
+            padding: 11px 15px;
+            border-radius: 14px;
+            font-size: 13px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .msg-bubble-wrap.customer .msg-bubble {
+            background: #f0f3f8;
+            color: var(--ink);
+            border-bottom-left-radius: 3px;
+        }
+
+        .msg-bubble-wrap.page .msg-bubble {
+            background: var(--brand);
+            color: #ffffff;
+            border-bottom-right-radius: 3px;
+        }
+
+        .msg-meta {
+            margin-top: 4px;
+            font-size: 11px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .msg-bubble-wrap.page .msg-meta {
+            justify-content: flex-end;
+        }
+
+        @media (max-width: 768px) {
+            .messages-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .threads-pane {
+                max-height: 240px;
+            }
+            .message-stream {
+                min-height: 320px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -609,6 +777,7 @@
         <button class="tab-button active" data-tab="comments" type="button">Comments</button>
         <button class="tab-button" data-tab="post-reactions" type="button">Post reactions</button>
         <button class="tab-button" data-tab="reviews" type="button">Reviews</button>
+        <button class="tab-button" data-tab="messages" type="button">Messages</button>
     </nav>
 
     <section id="commentsPanel" class="tab-panel" data-panel="comments">
@@ -717,6 +886,56 @@
             </div>
         </article>
     </section>
+
+    <section class="tab-panel" data-panel="messages" hidden>
+        <article class="card results-card">
+            <div class="results-header">
+                <div>
+                    <h2>Messenger inbox</h2>
+                    <span id="messagesMeta" class="section-meta">Run a sync to load inbox messages</span>
+                </div>
+                <div class="filters" aria-label="Message filters">
+                    <button class="msg-filter active" data-filter="all" type="button">All</button>
+                    <button class="msg-filter" data-filter="negative" type="button">Flagged</button>
+                    <button class="msg-filter" data-filter="critical" type="button">Critical</button>
+                    <button class="msg-filter" data-filter="positive" type="button">Positive</button>
+                </div>
+            </div>
+            <div class="reaction-summary" style="grid-template-columns: repeat(4, 1fr);" aria-label="Message statistics">
+                <div class="reaction-item">Threads<strong id="msgTotalConvs">—</strong></div>
+                <div class="reaction-item">Total messages<strong id="msgTotalCount">—</strong></div>
+                <div class="reaction-item">Customer inquiries<strong id="msgCustomerCount">—</strong></div>
+                <div class="reaction-item">Page replies<strong id="msgPageReplies">—</strong></div>
+            </div>
+            <div id="messagesEmpty" class="empty">
+                <strong>No inbox messages loaded</strong>
+                Click Sync now to extract Facebook Page Messenger conversations.
+                <p style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+                    Note: Your Page Access Token must have the <code>pages_messaging</code> permission enabled.
+                </p>
+            </div>
+            <div id="messagesContainer" class="messages-layout" hidden>
+                <div class="threads-pane">
+                    <div class="thread-search-box">
+                        <input type="search" id="threadSearchInput" placeholder="Search conversations..." aria-label="Search conversations">
+                    </div>
+                    <div id="threadsList" class="threads-list"></div>
+                </div>
+                <div class="conversation-pane">
+                    <div id="conversationHeader" class="conversation-header">
+                        <div>
+                            <h3 id="activeThreadName" style="margin: 0; font-size: 15px; font-weight: 750;">Select a conversation</h3>
+                            <span id="activeThreadMeta" style="font-size: 12px; color: var(--muted);">—</span>
+                        </div>
+                        <div id="activeThreadBadge"></div>
+                    </div>
+                    <div id="messageStream" class="message-stream">
+                        <div class="empty" style="padding: 40px 10px;">Select a thread on the left to view messages</div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </section>
 </main>
 
 <script>
@@ -724,6 +943,9 @@
     const notice = document.getElementById('notice');
     let latestResult = null;
     let activeFilter = 'all';
+    let activeMessageFilter = 'all';
+    let activeConversationId = null;
+    let conversationSearchTerm = '';
 
     syncButton.addEventListener('click', syncNow);
     document.querySelectorAll('.filter').forEach(button => {
@@ -733,6 +955,20 @@
             renderComments();
         });
     });
+    document.querySelectorAll('.msg-filter').forEach(button => {
+        button.addEventListener('click', () => {
+            activeMessageFilter = button.dataset.filter;
+            document.querySelectorAll('.msg-filter').forEach(item => item.classList.toggle('active', item === button));
+            renderThreadList();
+        });
+    });
+    const threadSearchInput = document.getElementById('threadSearchInput');
+    if (threadSearchInput) {
+        threadSearchInput.addEventListener('input', (e) => {
+            conversationSearchTerm = e.target.value.toLowerCase().trim();
+            renderThreadList();
+        });
+    }
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => selectTab(button.dataset.tab));
     });
@@ -780,8 +1016,15 @@
         const rating = result.pageRating || {};
         document.getElementById('ratingValue').textContent =
             rating.overallStarRating > 0 ? Number(rating.overallStarRating).toFixed(1) : '—';
-        document.getElementById('ratingDetail').textContent =
-            rating.ratingCount > 0 ? `${rating.ratingCount} ratings` : 'No rating available';
+        const yesCount = rating.yesRecommendations ?? 0;
+        const noCount = rating.noRecommendations ?? 0;
+        const ratingCount = rating.ratingCount ?? 0;
+        if (ratingCount > 0 || (yesCount + noCount) > 0) {
+            document.getElementById('ratingDetail').textContent =
+                `${ratingCount} ratings · 👍 ${yesCount} Yes · 👎 ${noCount} No`;
+        } else {
+            document.getElementById('ratingDetail').textContent = 'No rating available';
+        }
         document.getElementById('positiveCount').textContent = result.positiveComments;
         document.getElementById('neutralCount').textContent = result.neutralComments;
         document.getElementById('warningCount').textContent = result.warningComments;
@@ -801,6 +1044,7 @@
         renderReactions(result);
         renderComments();
         renderReviews(result);
+        renderMessages(result);
     }
 
     function renderReactions(result) {
@@ -903,8 +1147,12 @@
 
     function renderReviews(result) {
         const reviews = result.reviews || [];
+        const rating = result.pageRating || {};
+        const yesNo = (rating.yesRecommendations !== undefined && (rating.yesRecommendations > 0 || rating.noRecommendations > 0))
+            ? ` · 👍 ${rating.yesRecommendations} Yes · 👎 ${rating.noRecommendations} No`
+            : '';
         document.getElementById('reviewMeta').textContent =
-            `${reviews.length} reviews · ${result.negativeReviews ?? 0} negative`;
+            `${reviews.length} reviews · ${result.negativeReviews ?? 0} negative${yesNo}`;
         document.getElementById('reviewRows').replaceChildren(...reviews.map(createReviewRow));
         document.getElementById('reviewTableWrap').hidden = reviews.length === 0;
         document.getElementById('reviewEmpty').hidden = reviews.length > 0;
@@ -916,7 +1164,13 @@
         const row = document.createElement('tr');
 
         const recommendationCell = document.createElement('td');
-        recommendationCell.textContent = typeLabel(review.recommendationType || 'unknown');
+        if (review.recommendationType === 'positive') {
+            recommendationCell.innerHTML = '<span class="badge badge-positive">👍 Yes</span>';
+        } else if (review.recommendationType === 'negative') {
+            recommendationCell.innerHTML = '<span class="badge badge-critical">👎 No</span>';
+        } else {
+            recommendationCell.textContent = typeLabel(review.recommendationType || 'unknown');
+        }
 
         const reviewCell = document.createElement('td');
         reviewCell.className = 'review-text';
@@ -946,6 +1200,233 @@
         document.querySelectorAll('.tab-panel').forEach(panel => {
             panel.hidden = panel.dataset.panel !== tab;
         });
+    }
+
+    function renderMessages(result) {
+        const summary = result.messageSummary || {};
+        const conversations = result.conversations || [];
+
+        document.getElementById('msgTotalConvs').textContent = summary.totalConversations ?? conversations.length;
+        document.getElementById('msgTotalCount').textContent = summary.totalMessages ?? 0;
+        document.getElementById('msgCustomerCount').textContent = summary.customerMessages ?? 0;
+        document.getElementById('msgPageReplies').textContent = summary.pageReplies ?? 0;
+
+        const negRate = summary.negativeRate !== undefined ? Number(summary.negativeRate).toFixed(1) + '%' : '0.0%';
+        document.getElementById('messagesMeta').textContent =
+            `${conversations.length} conversation threads · ${summary.totalMessages ?? 0} messages · ${negRate} negative inquiries`;
+
+        const hasConvs = conversations.length > 0;
+        document.getElementById('messagesContainer').hidden = !hasConvs;
+        document.getElementById('messagesEmpty').hidden = hasConvs;
+
+        if (!hasConvs) return;
+
+        if (!activeConversationId || !conversations.some(c => c.id === activeConversationId)) {
+            activeConversationId = conversations[0].id;
+        }
+
+        renderThreadList();
+        renderActiveThread();
+    }
+
+    function renderThreadList() {
+        if (!latestResult) return;
+        const conversations = (latestResult.conversations || []).filter(conv => {
+            if (activeMessageFilter === 'negative') {
+                const isNeg = conv.overallSentiment === 'WARNING_NEGATIVE' || conv.overallSentiment === 'CRITICAL_NEGATIVE';
+                if (!isNeg) return false;
+            } else if (activeMessageFilter === 'critical') {
+                if (conv.overallSentiment !== 'CRITICAL_NEGATIVE') return false;
+            } else if (activeMessageFilter === 'positive') {
+                if (conv.overallSentiment !== 'POSITIVE') return false;
+            }
+
+            if (conversationSearchTerm) {
+                const names = (conv.participants || []).map(p => p.name || '').join(' ').toLowerCase();
+                const text = (conv.messages || []).map(m => m.rawMessage?.message || '').join(' ').toLowerCase();
+                if (!names.includes(conversationSearchTerm) && !text.includes(conversationSearchTerm) && !conv.id.toLowerCase().includes(conversationSearchTerm)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        const listEl = document.getElementById('threadsList');
+        listEl.replaceChildren(...conversations.map(createThreadItem));
+
+        if (conversations.length === 0) {
+            listEl.innerHTML = '<div class="empty" style="padding: 30px 10px; font-size: 13px;">No matching conversations</div>';
+        }
+    }
+
+    function createThreadItem(conv) {
+        const item = document.createElement('div');
+        item.className = `thread-item ${conv.id === activeConversationId ? 'active' : ''}`;
+        item.addEventListener('click', () => {
+            activeConversationId = conv.id;
+            renderThreadList();
+            renderActiveThread();
+        });
+
+        const header = document.createElement('div');
+        header.className = 'thread-item-header';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'thread-participant';
+        nameEl.textContent = getParticipantNames(conv);
+
+        const badge = document.createElement('span');
+        badge.className = `badge badge-${levelClass(conv.overallSentiment)}`;
+        badge.textContent = levelLabel(conv.overallSentiment);
+
+        header.append(nameEl, badge);
+
+        const snippetEl = document.createElement('div');
+        snippetEl.className = 'thread-snippet';
+        const lastMsg = conv.messages && conv.messages.length > 0 ? conv.messages[conv.messages.length - 1] : null;
+        snippetEl.textContent = lastMsg ? (lastMsg.rawMessage?.message || '[Empty message]') : '[No messages]';
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'time';
+        timeEl.style.fontSize = '11px';
+        timeEl.style.marginTop = '4px';
+        timeEl.textContent = formatTime(conv.updatedTime);
+
+        item.append(header, snippetEl, timeEl);
+        return item;
+    }
+
+    function renderActiveThread() {
+        if (!latestResult) return;
+        const conv = (latestResult.conversations || []).find(c => c.id === activeConversationId);
+        const nameEl = document.getElementById('activeThreadName');
+        const metaEl = document.getElementById('activeThreadMeta');
+        const badgeEl = document.getElementById('activeThreadBadge');
+        const streamEl = document.getElementById('messageStream');
+
+        if (!conv) {
+            nameEl.textContent = 'Select a conversation';
+            metaEl.textContent = '—';
+            badgeEl.replaceChildren();
+            streamEl.innerHTML = '<div class="empty" style="padding: 40px 10px;">Select a thread on the left to view messages</div>';
+            return;
+        }
+
+        nameEl.textContent = getParticipantNames(conv);
+        metaEl.textContent = `${conv.messages.length} messages · Updated ${formatTime(conv.updatedTime)}`;
+
+        const badge = document.createElement('span');
+        badge.className = `badge badge-${levelClass(conv.overallSentiment)}`;
+        badge.textContent = levelLabel(conv.overallSentiment);
+        badgeEl.replaceChildren(badge);
+
+        streamEl.replaceChildren(...(conv.messages || []).map(createMessageBubble));
+        streamEl.scrollTop = streamEl.scrollHeight;
+    }
+
+    function createMessageBubble(msg) {
+        const wrap = document.createElement('div');
+        wrap.className = `msg-bubble-wrap ${msg.isFromPage ? 'page' : 'customer'}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        const hasText = msg.rawMessage?.message && msg.rawMessage.message.trim().length > 0;
+        const attachments = msg.rawMessage?.attachments || [];
+        if (hasText) {
+            const textEl = document.createElement('div');
+            textEl.textContent = msg.rawMessage.message;
+            bubble.appendChild(textEl);
+        } else if (attachments.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.textContent = '[No message text]';
+            bubble.appendChild(emptyEl);
+        }
+
+        if (attachments.length > 0) {
+            const attachWrap = document.createElement('div');
+            attachWrap.className = 'msg-attachments';
+            attachWrap.style.marginTop = hasText ? '8px' : '0';
+            attachWrap.style.display = 'flex';
+            attachWrap.style.flexDirection = 'column';
+            attachWrap.style.gap = '6px';
+
+            attachments.forEach(att => {
+                const targetUrl = att.url || att.previewUrl;
+                const isImg = (att.mimeType && att.mimeType.toLowerCase().startsWith('image'))
+                    || (att.previewUrl && !att.mimeType?.includes('video'))
+                    || (targetUrl && (targetUrl.includes('.png') || targetUrl.includes('.jpg') || targetUrl.includes('.jpeg') || targetUrl.includes('.webp')));
+
+                if (isImg && targetUrl) {
+                    const imgLink = document.createElement('a');
+                    imgLink.href = targetUrl;
+                    imgLink.target = '_blank';
+                    imgLink.rel = 'noopener noreferrer';
+                    const img = document.createElement('img');
+                    img.src = att.previewUrl || targetUrl;
+                    img.alt = att.name || 'Attachment';
+                    img.style.maxWidth = '240px';
+                    img.style.maxHeight = '240px';
+                    img.style.borderRadius = '8px';
+                    img.style.display = 'block';
+                    imgLink.appendChild(img);
+                    attachWrap.appendChild(imgLink);
+                } else if (targetUrl) {
+                    const fileLink = document.createElement('a');
+                    fileLink.href = targetUrl;
+                    fileLink.target = '_blank';
+                    fileLink.rel = 'noopener noreferrer';
+                    fileLink.style.display = 'inline-flex';
+                    fileLink.style.alignItems = 'center';
+                    fileLink.style.gap = '6px';
+                    fileLink.style.color = msg.isFromPage ? '#ffffff' : 'var(--brand)';
+                    fileLink.style.textDecoration = 'underline';
+                    fileLink.style.fontSize = '12px';
+                    fileLink.textContent = `📎 ${att.name || 'View Attachment'}`;
+                    attachWrap.appendChild(fileLink);
+                }
+            });
+            bubble.appendChild(attachWrap);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'msg-meta';
+
+        if (msg.isFromPage) {
+            meta.textContent = `Page · ${formatTime(msg.rawMessage?.createdTime)}`;
+        } else {
+            const senderName = msg.rawMessage?.from?.name || 'Customer';
+            const senderSpan = document.createElement('span');
+            senderSpan.style.fontWeight = '600';
+            senderSpan.textContent = senderName;
+            meta.appendChild(senderSpan);
+
+            if (msg.score) {
+                const sentimentBadge = document.createElement('span');
+                sentimentBadge.className = `badge badge-${levelClass(msg.score.level)}`;
+                sentimentBadge.style.fontSize = '9px';
+                sentimentBadge.style.padding = '2px 6px';
+                sentimentBadge.textContent = `${Number(msg.score.compound).toFixed(2)} ${levelLabel(msg.score.level)}`;
+                meta.appendChild(sentimentBadge);
+            }
+
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = formatTime(msg.rawMessage?.createdTime);
+            meta.appendChild(timeSpan);
+        }
+
+        wrap.append(bubble, meta);
+        return wrap;
+    }
+
+    function getParticipantNames(conv) {
+        if (!conv.participants || conv.participants.length === 0) {
+            return `Thread #${conv.id}`;
+        }
+        const nonPage = conv.participants.filter(p => p.id !== (latestResult?.pageId || ''));
+        if (nonPage.length > 0) {
+            return nonPage.map(p => p.name || p.id).join(', ');
+        }
+        return conv.participants.map(p => p.name || p.id).join(', ');
     }
 
     function levelClass(level) {

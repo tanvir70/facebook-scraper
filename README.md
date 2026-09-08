@@ -8,10 +8,12 @@ A Java 21 Facebook Page monitoring application. It fetches posts, comments, reac
 - Configurable posts per page, comments per post, and maximum pages.
 - Total and per-type reactions for posts and comments: `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY`.
 - Page rating and customer review collection.
-- Local VADER sentiment analysis for comments and reviews.
+- Page Messenger inbox conversation and direct message extraction with media/file attachments.
+- Local VADER sentiment analysis for comments, reviews, and customer messages.
 - A **Sync now** browser UI at `http://localhost:8080`.
-- Separate dashboard tabs for comments, post reactions, and reviews.
+- Separate dashboard tabs for comments, post reactions, reviews, and messages.
 - Comment reactions displayed on their individual comment rows.
+- Dedicated JSON data exports (`output/messages.json`, `output/comments.json`, `output/reviews.json`, `output/posts.json`, `output/sync-result.json`).
 - Helpful expired-token errors without storing a Facebook password.
 
 ## Meta permissions
@@ -21,14 +23,17 @@ Generate a Page access token with:
 - `pages_show_list`
 - `pages_read_engagement`
 - `pages_read_user_content`
+- `pages_messaging` (required to read Page inbox conversations, messages, and attachments)
 
-Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/), generate a User token, then call:
+Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/), generate a User token with those permissions, then call:
 
 ```text
 /me/accounts?fields=id,name,access_token,tasks
 ```
 
 Copy the Page ID and Page access token returned for the Page. Meta documents `CARE` as a supported reaction type, but some Like metrics may also include Care activity. The dashboard displays the separate CARE value returned by the reactions endpoint.
+
+> **Note:** If `pages_messaging` is missing on your token, the application will log a clear warning and proceed with fetching posts, comments, and reviews without failing.
 
 ## Configuration
 
@@ -51,7 +56,13 @@ fb.feed.limit=100
 # Nested comments returned for each post
 fb.comment.limit=100
 
-# Feed/review pages to follow; use 0 for unlimited
+# Conversations per page (max 100)
+fb.conversation.limit=100
+
+# Messages per conversation thread (max 100)
+fb.message.limit=100
+
+# Feed/review/conversation pages to follow; use 0 for unlimited
 fb.max.pages=5
 
 app.negative.threshold=-0.05
@@ -78,19 +89,30 @@ Use a different port when needed:
 java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar --port=9090
 ```
 
-Click **Sync now** to run the complete collection and sentiment pipeline.
+Click **Sync now** to run the complete collection, sentiment analysis, and JSON export pipeline.
 
 ## Dashboard organization
 
 - **Comments:** Default view containing comment text, parent-post context, sentiment, score, timestamp, and that comment's reactions.
 - **Post reactions:** Post-level reaction totals and the per-post reaction breakdown.
 - **Reviews:** Page recommendations/reviews with ratings and sentiment.
+- **Messages:** Messenger inbox conversations and customer chat threads:
+  - Left panel: Searchable thread list showing customer name, message count, latest message timestamp, and customer sentiment badge.
+  - Right panel: Full chat transcript with distinct customer (left) and Page (right) bubbles, VADER sentiment scores, and attachment previews (images rendered directly, downloadable files linked).
+
+## JSON Data Exports
+
+Every sync writes structured JSON files into the `output/` directory (created automatically):
+
+- `output/messages.json`: All analyzed Messenger conversations, thread sentiment summaries, customer messages, Page replies, and attachments.
+- `output/comments.json`: Analyzed post comments with reaction summaries and sentiment labels.
+- `output/reviews.json`: Page reviews and ratings with sentiment labels.
+- `output/posts.json`: Page posts with reaction breakdowns.
+- `output/sync-result.json`: Full aggregate sync payload.
 
 ## Pagination
 
-The first request uses `fb.feed.limit` and `fb.comment.limit`. When Meta returns `paging.next`, the collector follows it until there is no next cursor or `fb.max.pages` is reached.
-
-Nested comment pagination is limited to the configured number of comments returned with each post. A separate comment-edge pagination workflow would be required to retrieve more comments than Meta returns in that nested result.
+The first request uses `fb.feed.limit`, `fb.comment.limit`, and `fb.conversation.limit`. When Meta returns `paging.next`, the collector follows it until there is no next cursor or `fb.max.pages` is reached.
 
 ## Tests
 
@@ -106,8 +128,17 @@ src/main/java/com/fbscraper/
 ├── client/FacebookClient.java
 ├── config/AppConfig.java
 ├── model/
+│   ├── FacebookAttachment.java
+│   ├── FacebookConversation.java
+│   ├── FacebookMessage.java
+│   ├── FacebookParticipant.java
+│   ├── AnalyzedConversation.java
+│   ├── AnalyzedMessage.java
+│   └── MessageSentimentSummary.java
 ├── sentiment/VaderAnalyzer.java
-├── service/SentimentSyncService.java
+├── service/
+│   ├── DataExportService.java
+│   └── SentimentSyncService.java
 ├── report/HtmlDashboardGenerator.java
 └── web/LocalWebServer.java
 

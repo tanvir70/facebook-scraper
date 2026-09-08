@@ -188,7 +188,13 @@ class FacebookClientTest {
                         "message": "Where is my delivery?",
                         "created_time": "2026-07-02T14:55:00+0000",
                         "from": {"id": "u_99", "name": "Alice User"},
-                        "to": {"data": [{"id": "123", "name": "My Page"}]}
+                        "to": {"data": [{"id": "123", "name": "My Page"}]},
+                        "attachments": {"data": [{
+                          "id": "att_1",
+                          "mime_type": "image/png",
+                          "name": "receipt.png",
+                          "image_data": {"url": "https://cdn.example.com/receipt.png", "preview_url": "https://cdn.example.com/preview.png"}
+                        }]}
                       }]
                     }
                   }],
@@ -207,6 +213,10 @@ class FacebookClientTest {
         assertThat(conv.messages().get(0).from().id()).isEqualTo("u_99");
         assertThat(conv.messages().get(0).to()).hasSize(1);
         assertThat(conv.messages().get(0).to().get(0).id()).isEqualTo("123");
+        assertThat(conv.messages().get(0).attachments()).hasSize(1);
+        assertThat(conv.messages().get(0).attachments().get(0).name()).isEqualTo("receipt.png");
+        assertThat(conv.messages().get(0).attachments().get(0).isImage()).isTrue();
+        assertThat(conv.messages().get(0).attachments().get(0).url()).isEqualTo("https://cdn.example.com/receipt.png");
         assertThat(page.nextUrl()).contains("after=cursor");
     }
 

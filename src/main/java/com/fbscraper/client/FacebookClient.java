@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.FacebookAttachment;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
@@ -155,9 +156,6 @@ public class FacebookClient {
         }
     }
 
-    public List<FacebookPost> parseFeedJson(String json) {
-        return parseFeedPage(json).posts();
-    }
 
     public String buildFeedUrl() {
         String fields = String.format(
@@ -327,7 +325,7 @@ public class FacebookClient {
 
     public String buildConversationsUrl() {
         String fields = String.format(
-                "id,updated_time,participants,messages.limit(%d){id,message,created_time,from,to}",
+                "id,updated_time,participants,messages.limit(%d){id,message,created_time,from,to,attachments{id,mime_type,name,size,file_url,image_data,video_data}}",
                 config.messageLimit()
         );
         String url = String.format(
@@ -392,13 +390,57 @@ public class FacebookClient {
                     );
                 }
                 List<FacebookParticipant> to = parseParticipants(node.path("to").path("data"));
+                List<FacebookAttachment> attachments = parseAttachments(node.path("attachments").path("data"));
                 list.add(new FacebookMessage(
                         node.path("id").asText(""),
                         node.path("message").asText(""),
                         parseInstant(node.path("created_time").asText("")),
                         from,
-                        to
+                        to,
+                        attachments
                 ));
+            }
+        }
+        return list;
+    }
+
+    private List<FacebookAttachment> parseAttachments(JsonNode data) {
+        List<FacebookAttachment> list = new ArrayList<>();
+        if (data.isArray()) {
+            for (JsonNode node : data) {
+                String id = node.path("id").asText("");
+                String mimeType = node.hasNonNull("mime_type") ? node.path("mime_type").asText() : null;
+                String name = node.hasNonNull("name") ? node.path("name").asText() : null;
+                Long size = node.hasNonNull("size") ? node.path("size").asLong() : null;
+
+                String url = null;
+                String previewUrl = null;
+
+                if (node.hasNonNull("file_url")) {
+                    url = node.path("file_url").asText();
+                }
+
+                if (node.hasNonNull("image_data")) {
+                    JsonNode imageData = node.get("image_data");
+                    if (url == null && imageData.hasNonNull("url")) {
+                        url = imageData.path("url").asText();
+                    }
+                    if (imageData.hasNonNull("preview_url")) {
+                        previewUrl = imageData.path("preview_url").asText();
+                    }
+                }
+
+                if (node.hasNonNull("video_data")) {
+                    JsonNode videoData = node.get("video_data");
+                    if (url == null && videoData.hasNonNull("url")) {
+                        url = videoData.path("url").asText();
+                    }
+                    if (videoData.hasNonNull("preview_url")) {
+                        previewUrl = videoData.path("preview_url").asText();
+                    }
+                }
+
+                list.add(new FacebookAttachment(id, mimeType, name, size, url, previewUrl));
             }
         }
         return list;

@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,7 +27,7 @@ public final class LocalWebServer implements AutoCloseable {
     private final SentimentSyncService syncService;
     private final ObjectMapper objectMapper;
     private final AtomicBoolean syncing = new AtomicBoolean(false);
-    private final AtomicReference<SyncResult> latestResult = new AtomicReference<>();
+    private final AtomicReference<SyncResult> latestResult;
 
     public LocalWebServer(int port, SentimentSyncService syncService) {
         try {
@@ -37,6 +38,7 @@ public final class LocalWebServer implements AutoCloseable {
 
         this.syncService = syncService;
         this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        this.latestResult = new AtomicReference<>(syncService.loadPreviousResult().orElse(null));
         this.executor = Executors.newFixedThreadPool(4);
         this.server.setExecutor(executor);
         this.server.createContext("/api/sync", this::handleSync);
@@ -50,6 +52,10 @@ public final class LocalWebServer implements AutoCloseable {
 
     public int port() {
         return server.getAddress().getPort();
+    }
+
+    public Optional<SyncResult> latestResult() {
+        return Optional.ofNullable(latestResult.get());
     }
 
     private void handleDashboard(HttpExchange exchange) throws IOException {
