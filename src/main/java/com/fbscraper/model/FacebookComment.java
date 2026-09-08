@@ -8,9 +8,19 @@ import java.time.Instant;
  * @param id          the unique identifier of the comment
  * @param message     the text of the comment
  * @param createdTime the creation timestamp
+ * @param reactions   aggregated reaction counts for this comment
  */
 public record FacebookComment(
         String id,
         String message,
-        Instant createdTime
-) {}
+        Instant createdTime,
+        ReactionSummary reactions
+) {
+    public FacebookComment {
+        reactions = reactions == null ? ReactionSummary.empty() : reactions;
+    }
+
+    public FacebookComment(String id, String message, Instant createdTime) {
+        this(id, message, createdTime, ReactionSummary.empty());
+    }
+}

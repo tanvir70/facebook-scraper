@@ -60,7 +60,8 @@ public final class SentimentSyncService {
                         comment.createdTime(),
                         score.compound(),
                         score.level(),
-                        score.compound() <= config.negativeThreshold()
+                        score.compound() <= config.negativeThreshold(),
+                        comment.reactions()
                 ));
             }
         }
@@ -74,6 +75,7 @@ public final class SentimentSyncService {
         int critical = countByLevel(comments, SentimentLevel.CRITICAL_NEGATIVE);
         int negative = (int) comments.stream().filter(CommentAnalysis::flagged).count();
         ReactionSummary reactionTotals = sumReactions(posts);
+        ReactionSummary commentReactionTotals = sumCommentReactions(posts);
         double negativeRate = comments.isEmpty()
                 ? 0.0
                 : Math.round((negative * 1000.0) / comments.size()) / 10.0;
@@ -86,6 +88,8 @@ public final class SentimentSyncService {
                 comments.size(),
                 reactionTotals.total(),
                 reactionTotals,
+                commentReactionTotals.total(),
+                commentReactionTotals,
                 positive,
                 neutral,
                 warning,
@@ -98,15 +102,26 @@ public final class SentimentSyncService {
     }
 
     private ReactionSummary sumReactions(List<FacebookPost> posts) {
+        return sumReactionSummaries(posts.stream().map(FacebookPost::reactions).toList());
+    }
+
+    private ReactionSummary sumCommentReactions(List<FacebookPost> posts) {
+        return sumReactionSummaries(posts.stream()
+                .flatMap(post -> post.comments().stream())
+                .map(FacebookComment::reactions)
+                .toList());
+    }
+
+    private ReactionSummary sumReactionSummaries(List<ReactionSummary> reactions) {
         return new ReactionSummary(
-                posts.stream().mapToInt(post -> post.reactions().total()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().like()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().love()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().care()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().haha()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().wow()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().sad()).sum(),
-                posts.stream().mapToInt(post -> post.reactions().angry()).sum()
+                reactions.stream().mapToInt(ReactionSummary::total).sum(),
+                reactions.stream().mapToInt(ReactionSummary::like).sum(),
+                reactions.stream().mapToInt(ReactionSummary::love).sum(),
+                reactions.stream().mapToInt(ReactionSummary::care).sum(),
+                reactions.stream().mapToInt(ReactionSummary::haha).sum(),
+                reactions.stream().mapToInt(ReactionSummary::wow).sum(),
+                reactions.stream().mapToInt(ReactionSummary::sad).sum(),
+                reactions.stream().mapToInt(ReactionSummary::angry).sum()
         );
     }
 

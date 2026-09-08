@@ -342,6 +342,32 @@
             text-align: center;
         }
 
+        .reaction-note {
+            margin: 0;
+            padding: 10px 22px;
+            border-bottom: 1px solid var(--line);
+            color: var(--muted);
+            background: #fbfcff;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .comment-reaction-total {
+            display: block;
+            color: var(--ink);
+            font-size: 15px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .comment-reaction-breakdown {
+            display: block;
+            min-width: 130px;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 10px;
+            line-height: 1.45;
+        }
+
         .results-header {
             padding: 20px 22px;
             border-bottom: 1px solid var(--line);
@@ -502,7 +528,7 @@
             <span id="negativeDetail" class="stat-detail">Configured threshold</span>
         </article>
         <article class="card stat">
-            <span class="stat-label">Reactions collected</span>
+            <span class="stat-label">Post reactions</span>
             <span id="reactionsValue" class="stat-value">—</span>
             <span class="stat-detail">Across fetched posts</span>
         </article>
@@ -555,6 +581,7 @@
             <div class="reaction-item">Sad<strong id="sadCount">—</strong></div>
             <div class="reaction-item">Angry<strong id="angryCount">—</strong></div>
         </div>
+        <p class="reaction-note">Meta can include some Care activity in Like counts; the Care value shown here is the separate CARE result returned by the API.</p>
         <div id="reactionEmpty" class="empty">
             <strong>No reactions loaded</strong>
             Click Sync now to fetch reaction totals for each Page post.
@@ -577,6 +604,25 @@
                 <tbody id="reactionRows"></tbody>
             </table>
         </div>
+    </section>
+
+    <section class="card reactions-card">
+        <div class="results-header">
+            <div>
+                <h2>Comment reactions</h2>
+                <span id="commentReactionMeta" class="section-meta">Run a sync to load comment reactions</span>
+            </div>
+        </div>
+        <div class="reaction-summary" aria-label="Comment reaction totals by type">
+            <div class="reaction-item">Like<strong id="commentLikeCount">—</strong></div>
+            <div class="reaction-item">Love<strong id="commentLoveCount">—</strong></div>
+            <div class="reaction-item">Care<strong id="commentCareCount">—</strong></div>
+            <div class="reaction-item">Haha<strong id="commentHahaCount">—</strong></div>
+            <div class="reaction-item">Wow<strong id="commentWowCount">—</strong></div>
+            <div class="reaction-item">Sad<strong id="commentSadCount">—</strong></div>
+            <div class="reaction-item">Angry<strong id="commentAngryCount">—</strong></div>
+        </div>
+        <p class="reaction-note">The per-comment reaction breakdown is included in the analyzed comments table below.</p>
     </section>
 
     <section class="card results-card">
@@ -602,6 +648,7 @@
                 <tr>
                     <th>Sentiment</th>
                     <th>Comment and post</th>
+                    <th>Reactions</th>
                     <th>Score</th>
                     <th>Created</th>
                 </tr>
@@ -697,6 +744,14 @@
         document.getElementById('reactionRows').replaceChildren(...postReactions.map(createReactionRow));
         document.getElementById('reactionTableWrap').hidden = postReactions.length === 0;
         document.getElementById('reactionEmpty').hidden = postReactions.length > 0;
+
+        const commentTotals = result.commentReactionTotals || {};
+        ['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+            const suffix = type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById(`comment${suffix}Count`).textContent = commentTotals[type] ?? 0;
+        });
+        document.getElementById('commentReactionMeta').textContent =
+            `${result.totalCommentReactions ?? 0} reactions across ${result.totalComments} comments`;
     }
 
     function createReactionRow(post) {
@@ -758,12 +813,28 @@
         scoreCell.className = 'score';
         scoreCell.textContent = Number(comment.compound).toFixed(3);
 
+        const reactionCell = document.createElement('td');
+        const reactionTotal = document.createElement('strong');
+        reactionTotal.className = 'comment-reaction-total';
+        reactionTotal.textContent = comment.reactions?.total ?? 0;
+        const reactionBreakdown = document.createElement('span');
+        reactionBreakdown.className = 'comment-reaction-breakdown';
+        const reactionParts = ['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry']
+            .filter(type => (comment.reactions?.[type] ?? 0) > 0)
+            .map(type => `${typeLabel(type)} ${comment.reactions[type]}`);
+        reactionBreakdown.textContent = reactionParts.length > 0 ? reactionParts.join(' · ') : 'No reactions';
+        reactionCell.append(reactionTotal, reactionBreakdown);
+
         const timeCell = document.createElement('td');
         timeCell.className = 'time';
         timeCell.textContent = formatTime(comment.createdTime);
 
-        row.append(sentimentCell, messageCell, scoreCell, timeCell);
+        row.append(sentimentCell, messageCell, reactionCell, scoreCell, timeCell);
         return row;
+    }
+
+    function typeLabel(type) {
+        return type.charAt(0).toUpperCase() + type.slice(1);
     }
 
     function levelClass(level) {

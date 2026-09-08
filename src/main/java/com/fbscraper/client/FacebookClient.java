@@ -33,6 +33,15 @@ public class FacebookClient {
 
     private static final DateTimeFormatter FACEBOOK_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+    private static final String REACTION_FIELDS =
+            "reactions.limit(0).summary(total_count).as(reaction_total),"
+                    + "reactions.type(LIKE).limit(0).summary(total_count).as(reaction_like),"
+                    + "reactions.type(LOVE).limit(0).summary(total_count).as(reaction_love),"
+                    + "reactions.type(CARE).limit(0).summary(total_count).as(reaction_care),"
+                    + "reactions.type(HAHA).limit(0).summary(total_count).as(reaction_haha),"
+                    + "reactions.type(WOW).limit(0).summary(total_count).as(reaction_wow),"
+                    + "reactions.type(SAD).limit(0).summary(total_count).as(reaction_sad),"
+                    + "reactions.type(ANGRY).limit(0).summary(total_count).as(reaction_angry)";
 
     private final AppConfig config;
     private final Path sampleDataPath;
@@ -92,23 +101,19 @@ public class FacebookClient {
                         comments.add(new FacebookComment(
                                 commentNode.path("id").asText(""),
                                 commentNode.path("message").asText(""),
-                                parseInstant(commentNode.path("created_time").asText())
+                                parseInstant(commentNode.path("created_time").asText()),
+                                parseReactions(commentNode)
                         ));
                     }
                 }
 
-                ReactionSummary reactions = new ReactionSummary(
-                        reactionCount(postNode, "reactions"),
-                        reactionCount(postNode, "like"),
-                        reactionCount(postNode, "love"),
-                        reactionCount(postNode, "care"),
-                        reactionCount(postNode, "haha"),
-                        reactionCount(postNode, "wow"),
-                        reactionCount(postNode, "sad"),
-                        reactionCount(postNode, "angry")
-                );
-
-                posts.add(new FacebookPost(id, message, createdTime, comments, reactions));
+                posts.add(new FacebookPost(
+                        id,
+                        message,
+                        createdTime,
+                        comments,
+                        parseReactions(postNode)
+                ));
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Facebook feed JSON", e);
@@ -163,8 +168,25 @@ public class FacebookClient {
         }
     }
 
-    private int reactionCount(JsonNode postNode, String field) {
-        return postNode.path(field).path("summary").path("total_count").asInt(0);
+    private ReactionSummary parseReactions(JsonNode node) {
+        return new ReactionSummary(
+                reactionCount(node, "reaction_total", "reactions"),
+                reactionCount(node, "reaction_like", "like"),
+                reactionCount(node, "reaction_love", "love"),
+                reactionCount(node, "reaction_care", "care"),
+                reactionCount(node, "reaction_haha", "haha"),
+                reactionCount(node, "reaction_wow", "wow"),
+                reactionCount(node, "reaction_sad", "sad"),
+                reactionCount(node, "reaction_angry", "angry")
+        );
+    }
+
+    private int reactionCount(JsonNode node, String field, String legacyField) {
+        JsonNode count = node.path(field).path("summary").path("total_count");
+        if (!count.asText("").isBlank()) {
+            return count.asInt(0);
+        }
+        return node.path(legacyField).path("summary").path("total_count").asInt(0);
     }
 
     private Instant parseInstant(String text) {
@@ -188,15 +210,9 @@ public class FacebookClient {
     public String buildFeedUrl() {
         String fieldsParam = URLEncoder.encode(
                 "id,message,created_time,"
-                        + "reactions.limit(0).summary(total_count),"
-                        + "reactions.type(LIKE).limit(0).summary(total_count).as(like),"
-                        + "reactions.type(LOVE).limit(0).summary(total_count).as(love),"
-                        + "reactions.type(CARE).limit(0).summary(total_count).as(care),"
-                        + "reactions.type(HAHA).limit(0).summary(total_count).as(haha),"
-                        + "reactions.type(WOW).limit(0).summary(total_count).as(wow),"
-                        + "reactions.type(SAD).limit(0).summary(total_count).as(sad),"
-                        + "reactions.type(ANGRY).limit(0).summary(total_count).as(angry),"
-                        + "comments{id,message,created_time}",
+                        + REACTION_FIELDS + ","
+                        + "comments.limit(100){id,message,created_time,"
+                        + REACTION_FIELDS + "}",
                 StandardCharsets.UTF_8
         );
         return String.format(

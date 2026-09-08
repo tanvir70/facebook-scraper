@@ -41,6 +41,9 @@ class LocalWebServerTest {
                     "\"totalPosts\":2",
                     "\"totalComments\":8",
                     "\"totalReactions\":23",
+                    "\"totalCommentReactions\":26",
+                    "\"commentReactionTotals\"",
+                    "\"care\":1",
                     "\"angry\":5"
             );
         }

@@ -13,5 +13,10 @@ public record CommentAnalysis(
         Instant createdTime,
         double compound,
         SentimentLevel level,
-        boolean flagged
-) {}
+        boolean flagged,
+        ReactionSummary reactions
+) {
+    public CommentAnalysis {
+        reactions = reactions == null ? ReactionSummary.empty() : reactions;
+    }
+}

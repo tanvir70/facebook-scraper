@@ -21,9 +21,16 @@ class AppE2ETest {
         assertThat(result.reactionTotals().like()).isEqualTo(11);
         assertThat(result.reactionTotals().angry()).isEqualTo(5);
         assertThat(result.postReactions()).hasSize(2);
+        assertThat(result.totalCommentReactions()).isEqualTo(26);
+        assertThat(result.commentReactionTotals().care()).isEqualTo(1);
+        assertThat(result.commentReactionTotals().angry()).isEqualTo(9);
         assertThat(result.comments()).anySatisfy(comment -> {
             assertThat(comment.message()).contains("HORRIBLE");
             assertThat(comment.flagged()).isTrue();
+        });
+        assertThat(result.comments()).anySatisfy(comment -> {
+            assertThat(comment.commentId()).isEqualTo("comm_5");
+            assertThat(comment.reactions().care()).isEqualTo(1);
         });
         assertThat(result.positiveComments() + result.neutralComments()
                 + result.warningComments() + result.criticalComments())

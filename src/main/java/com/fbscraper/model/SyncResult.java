@@ -14,6 +14,8 @@ public record SyncResult(
         int totalComments,
         int totalReactions,
         ReactionSummary reactionTotals,
+        int totalCommentReactions,
+        ReactionSummary commentReactionTotals,
         int positiveComments,
         int neutralComments,
         int warningComments,
@@ -25,6 +27,9 @@ public record SyncResult(
 ) {
     public SyncResult {
         reactionTotals = reactionTotals == null ? ReactionSummary.empty() : reactionTotals;
+        commentReactionTotals = commentReactionTotals == null
+                ? ReactionSummary.empty()
+                : commentReactionTotals;
         comments = comments == null ? List.of() : List.copyOf(comments);
         postReactions = postReactions == null ? List.of() : List.copyOf(postReactions);
     }
