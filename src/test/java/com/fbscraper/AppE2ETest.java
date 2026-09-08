@@ -1,17 +1,24 @@
 package com.fbscraper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fbscraper.model.*;
+import com.fbscraper.client.FacebookClient;
+import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.AnalyzedComment;
+import com.fbscraper.model.AnalyzedReview;
+import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.PageRatingSummary;
+import com.fbscraper.model.ReactionSummary;
+import com.fbscraper.model.SentimentScore;
+import com.fbscraper.model.SyncResult;
 import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
+import com.fbscraper.service.SentimentSyncService;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,71 +26,80 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppE2ETest {
 
     @Test
-    void shouldExecutePipelineAndGenerateOutputs() throws IOException {
-        // Prepare test data
-        FacebookComment c1 = new FacebookComment("c1", "This update is HORRIBLE! Absolute disaster.", Instant.now());
-        FacebookComment c2 = new FacebookComment("c2", "Awesome job, absolutely love the new features!", Instant.now());
-        FacebookPost post = new FacebookPost("p1", "Product Launch Post", Instant.now(), List.of(c1, c2));
-        List<FacebookPost> posts = List.of(post);
+    void shouldRunTheDashboardSyncPipeline() {
+        AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
+        Instant now = Instant.parse("2026-09-08T08:00:00Z");
+        FacebookComment comment = new FacebookComment(
+                "c1",
+                "This service is horrible",
+                now,
+                new ReactionSummary(3, 1, 0, 1, 0, 0, 0, 1)
+        );
+        FacebookPost post = new FacebookPost(
+                "p1",
+                "Support update",
+                now,
+                List.of(comment),
+                new ReactionSummary(10, 4, 1, 1, 1, 0, 1, 2)
+        );
+        FacebookReview review = new FacebookReview(now, "negative", "Very poor support", 2, true);
 
-        PageRatingSummary ratingSummary = new PageRatingSummary(4.5, 50);
-        FacebookReview review1 = new FacebookReview(Instant.now(), "positive", "Outstanding service, highly recommended!", 5, true);
-        List<FacebookReview> reviews = List.of(review1);
+        FacebookClient client = new FacebookClient(config, request -> {
+            throw new AssertionError("The test client must not make HTTP calls");
+        }) {
+            @Override
+            public List<FacebookPost> fetchPageFeed() {
+                return List.of(post);
+            }
 
-        // Run analyzer
-        VaderAnalyzer analyzer = VaderAnalyzer.createDefault();
-        List<AnalyzedComment> analyzedComments = new ArrayList<>();
-        for (FacebookComment c : post.comments()) {
-            SentimentScore score = analyzer.analyze(c.message());
-            analyzedComments.add(new AnalyzedComment(c, post.id(), post.message(), score));
-        }
+            @Override
+            public PageRatingSummary fetchPageRatingSummary() {
+                return new PageRatingSummary(3.8, 42);
+            }
 
-        List<AnalyzedReview> analyzedReviews = new ArrayList<>();
-        for (FacebookReview rev : reviews) {
-            SentimentScore score = analyzer.analyze(rev.reviewText());
-            analyzedReviews.add(new AnalyzedReview(rev, score));
-        }
+            @Override
+            public List<FacebookReview> fetchPageReviews() {
+                return List.of(review);
+            }
+        };
 
-        // Generate dashboard
-        Path dashboard = Path.of("output/test_dashboard.html");
-        HtmlDashboardGenerator generator = new HtmlDashboardGenerator();
-        generator.generateReport(posts, analyzedComments, ratingSummary, analyzedReviews, dashboard);
+        SyncResult result = new SentimentSyncService(
+                config,
+                client,
+                VaderAnalyzer.createDefault()
+        ).sync();
 
-        // Generate comments and reviews JSON
-        Path jsonPath = Path.of("output/test_comments.json");
-        Path reviewsJsonPath = Path.of("output/test_reviews.json");
-        if (jsonPath.getParent() != null) {
-            Files.createDirectories(jsonPath.getParent());
-        }
-        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
-        mapper.writerWithDefaultPrettyPrinter().writeValue(reviewsJsonPath.toFile(), analyzedReviews);
+        assertThat(result.totalPosts()).isEqualTo(1);
+        assertThat(result.totalComments()).isEqualTo(1);
+        assertThat(result.totalReactions()).isEqualTo(10);
+        assertThat(result.reactionTotals().care()).isEqualTo(1);
+        assertThat(result.totalCommentReactions()).isEqualTo(3);
+        assertThat(result.comments().get(0).reactions().care()).isEqualTo(1);
+        assertThat(result.totalReviews()).isEqualTo(1);
+        assertThat(result.negativeReviews()).isEqualTo(1);
+        assertThat(result.pageRating().overallStarRating()).isEqualTo(3.8);
+    }
 
-        // Verify outputs
-        assertThat(Files.exists(dashboard)).isTrue();
-        assertThat(Files.exists(jsonPath)).isTrue();
-        assertThat(Files.exists(reviewsJsonPath)).isTrue();
+    @Test
+    void shouldGenerateTheLegacyHtmlReportWithReviews() throws Exception {
+        Instant now = Instant.now();
+        FacebookComment comment = new FacebookComment("c1", "Great service", now);
+        FacebookPost post = new FacebookPost("p1", "Update", now, List.of(comment));
+        SentimentScore score = VaderAnalyzer.createDefault().analyze(comment.message());
+        AnalyzedComment analyzedComment = new AnalyzedComment(comment, post.id(), post.message(), score);
+        FacebookReview review = new FacebookReview(now, "positive", "Recommended", 5, true);
+        AnalyzedReview analyzedReview = new AnalyzedReview(review, VaderAnalyzer.createDefault().analyze(review.reviewText()));
+        Path dashboard = Files.createTempFile("facebook-dashboard-", ".html");
 
-        String html = Files.readString(dashboard);
-        assertThat(html).contains("Facebook Scraper Dashboard");
-        assertThat(html).contains("This update is HORRIBLE!");
-        assertThat(html).contains("1 positive comments");
-        assertThat(html).contains("Overall Page Rating");
-        assertThat(html).contains("4.5");
-        assertThat(html).contains("Outstanding service, highly recommended!");
+        new HtmlDashboardGenerator().generateReport(
+                List.of(post),
+                List.of(analyzedComment),
+                new PageRatingSummary(4.7, 20),
+                List.of(analyzedReview),
+                dashboard
+        );
 
-        String json = Files.readString(jsonPath);
-        assertThat(json).contains("This update is HORRIBLE!");
-        assertThat(json).contains("Awesome job");
-        assertThat(json).contains("compound");
-
-        String revJson = Files.readString(reviewsJsonPath);
-        assertThat(revJson).contains("Outstanding service, highly recommended!");
-        assertThat(revJson).contains("POSITIVE");
-
-        // Clean up test outputs
+        assertThat(Files.readString(dashboard)).contains("Overall Page Rating", "Recommended");
         Files.deleteIfExists(dashboard);
-        Files.deleteIfExists(jsonPath);
-        Files.deleteIfExists(reviewsJsonPath);
     }
 }

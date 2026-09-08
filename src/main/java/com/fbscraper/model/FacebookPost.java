@@ -10,14 +10,21 @@ import java.util.List;
  * @param message     the text content of the post
  * @param createdTime the creation timestamp
  * @param comments    the list of comments associated with this post (defensively copied)
+ * @param reactions   aggregated reaction counts for this post
  */
 public record FacebookPost(
         String id,
         String message,
         Instant createdTime,
-        List<FacebookComment> comments
+        List<FacebookComment> comments,
+        ReactionSummary reactions
 ) {
     public FacebookPost {
         comments = (comments == null) ? List.of() : List.copyOf(comments);
+        reactions = reactions == null ? ReactionSummary.empty() : reactions;
+    }
+
+    public FacebookPost(String id, String message, Instant createdTime, List<FacebookComment> comments) {
+        this(id, message, createdTime, comments, ReactionSummary.empty());
     }
 }

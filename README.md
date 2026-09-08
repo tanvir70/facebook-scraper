@@ -1,143 +1,118 @@
 # Facebook Scraper
 
-A modular Java 21 application designed to scrape posts, nested comments, and customer reviews/ratings from Facebook Pages via the Meta Graph API, evaluate sentiment locally using an embedded VADER (Valence Aware Dictionary and sEntiment Reasoner) engine, export structured JSON datasets (`output/comments.json`, `output/reviews.json`), and generate a standalone interactive HTML dashboard (`output/dashboard.html`).
-
----
+A Java 21 Facebook Page monitoring application. It fetches posts, comments, reactions, ratings, and reviews through the Meta Graph API, analyzes comment and review sentiment with VADER, and presents the results in a local browser dashboard.
 
 ## Features
 
-- **Official Facebook Graph API Integration:** Clean HTTP REST client using native `java.net.http.HttpClient` with Bearer Token authentication.
-- **Cursor-Based Feed & Reviews Pagination:** Follows Facebook's `paging.next` cursor across multiple pages to fetch historical posts, comments, and reviews without hitting arbitrary page limits.
-- **Page Ratings & Reviews Scraping:** Retrieves `overall_star_rating` and `rating_count`, plus all customer recommendations and reviews via the `/{page-id}/ratings` endpoint.
-- **Granular Limit Control:** Separately configure posts per page (`fb.feed.limit=100`) and nested comments per post (`fb.comment.limit=100`).
-- **Direct Configuration:** Reads directly from a single `config.properties` file without complex classpath or environment variable indirections.
-- **Local VADER NLP Engine:** Fast in-memory sentiment scoring tailored specifically for social media (accounts for all-caps emphasis, exclamation marks `!`, negation reversal, and booster words).
-- **Interactive HTML Dashboard:** Generates `output/dashboard.html` with:
-  - KPI summary cards (Total Posts, Total Comments, Overall Page Rating ⭐, Negative Feedback Rate %, Health Status).
-  - Visual doughnut chart (powered by Chart.js).
-  - Actionable table of flagged negative comments with real-time keyword search.
-  - Full table of customer recommendations and reviews with sentiment classifications.
-- **Raw JSON Data Export:** Saves analyzed comments to `output/comments.json` and analyzed reviews to `output/reviews.json` for downstream analytics.
-- **Zero Heavy Frameworks:** Minimal dependencies (Jackson for JSON, JUnit 5 + AssertJ for testing).
-- **IntelliJ IDEA Ready:** Pre-configured with Maven Wrapper (`./mvnw`).
+- Cursor pagination for Page posts and reviews.
+- Configurable posts per page, comments per post, and maximum pages.
+- Total and per-type reactions for posts and comments: `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY`.
+- Page rating and customer review collection.
+- Local VADER sentiment analysis for comments and reviews.
+- A **Sync now** browser UI at `http://localhost:8080`.
+- Separate dashboard tabs for comments, post reactions, and reviews.
+- Comment reactions displayed on their individual comment rows.
+- Helpful expired-token errors without storing a Facebook password.
 
----
+## Meta permissions
 
-## Configuration (`config.properties`)
+Generate a Page access token with:
 
-Create or edit `config.properties` in your project root (or `src/main/resources/config.properties`):
+- `pages_show_list`
+- `pages_read_engagement`
+- `pages_read_user_content`
+
+Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/), generate a User token, then call:
+
+```text
+/me/accounts?fields=id,name,access_token,tasks
+```
+
+Copy the Page ID and Page access token returned for the Page. Meta documents `CARE` as a supported reaction type, but some Like metrics may also include Care activity. The dashboard displays the separate CARE value returned by the reactions endpoint.
+
+## Configuration
+
+Copy the template:
+
+```bash
+cp src/main/resources/config.properties.template config.properties
+```
+
+Edit `config.properties`:
 
 ```properties
-# Your numeric Facebook Page ID (found in Page -> About -> Page transparency)
-fb.page.id=1214847765056124
-
-# Your Page Access Token with pages_read_engagement & pages_read_user_content permissions
-fb.access.token=EAAB...your_token_here...
-
-# Graph API Version (defaults to v26.0)
+fb.page.id=YOUR_FACEBOOK_PAGE_ID
+fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 fb.api.version=v26.0
 
-# Number of posts to fetch per page request (max allowed by Meta is 100)
+# Posts returned by each feed request
 fb.feed.limit=100
 
-# Number of comments to fetch per post (max allowed by Meta is 100)
+# Nested comments returned for each post
 fb.comment.limit=100
 
-# Maximum number of pages to paginate through (default 5; set 0 for unlimited)
+# Feed/review pages to follow; use 0 for unlimited
 fb.max.pages=5
 
-# Negative sentiment threshold (default -0.05). Any compound score <= this will be flagged
 app.negative.threshold=-0.05
 ```
 
----
+The application reads `config.properties` from the working directory, falling back to `src/main/resources/config.properties`.
 
-## Quick Start
+## Run
 
-### 1. Run with Maven Wrapper
 ```bash
-./mvnw compile exec:java -Dexec.mainClass="com.fbscraper.App"
-```
-
-### 2. Build and Run Standalone JAR
-```bash
-# Package the shaded uber-jar
 ./mvnw clean package
-
-# Run the application
 java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
 ```
 
-### 3. View Results
-- **HTML Dashboard:**
-  ```bash
-  google-chrome output/dashboard.html
-  # or
-  xdg-open output/dashboard.html
-  ```
-- **Raw Comments & Reviews JSON:**
-  ```bash
-  cat output/comments.json
-  cat output/reviews.json
-  ```
+Open:
 
----
-
-## How Pagination Works
-
-1. **Feed Pagination**: The scraper requests `https://graph.facebook.com/v26.0/{page-id}/feed?fields=...&limit=100` requesting up to `100` posts and up to `100` comments per post (`comments.limit(100)`).
-2. **Reviews Pagination**: The scraper also requests `https://graph.facebook.com/v26.0/{page-id}/ratings?fields=...&limit=100` to fetch customer reviews.
-3. **Cursor Navigation**: When Meta returns a `paging.next` URL containing the cursor (`after=...`), the scraper automatically fetches subsequent pages.
-4. **Safety Cap**: The process repeats until all items are retrieved or the configured `fb.max.pages` limit is reached (default: 5 pages).
-
----
-
-## Project Structure
-
-```
-facebook-scraper/
-├── pom.xml                                   # Maven build configuration (Java 21)
-├── README.md                                 # Documentation & usage guide
-├── config.properties                         # Active runtime configuration (gitignored)
-├── config.properties.template                # Configuration template
-├── src/
-│   ├── main/
-│   │   ├── java/com/fbscraper/
-│   │   │   ├── App.java                      # CLI coordinator & pipeline runner
-│   │   │   ├── config/
-│   │   │   │   └── AppConfig.java            # Strict config.properties file reader
-│   │   │   ├── model/
-│   │   │   │   ├── FacebookPost.java         # Immutable records
-│   │   │   │   ├── FacebookComment.java
-│   │   │   │   ├── FacebookReview.java       # Customer review / recommendation record
-│   │   │   │   ├── PageRatingSummary.java    # Page overall star rating & count
-│   │   │   │   ├── SentimentScore.java
-│   │   │   │   ├── SentimentLevel.java
-│   │   │   │   ├── AnalyzedComment.java
-│   │   │   │   └── AnalyzedReview.java       # Sentiment-evaluated review record
-│   │   │   ├── client/
-│   │   │   │   └── FacebookClient.java       # Graph API client (feed & reviews pagination)
-│   │   │   ├── sentiment/
-│   │   │   │   └── VaderAnalyzer.java        # Local VADER sentiment engine
-│   │   │   └── report/
-│   │   │       └── HtmlDashboardGenerator.java # HTML report builder with reviews & ratings
-│   │   └── resources/
-│   │       └── vader_lexicon.txt             # 7,500+ token sentiment lexicon
-│   └── test/
-│       └── java/com/fbscraper/
-│           ├── AppE2ETest.java               # End-to-end pipeline test
-│           ├── client/FacebookClientTest.java
-│           ├── config/AppConfigTest.java
-│           ├── model/ModelTest.java
-│           ├── report/HtmlDashboardGeneratorTest.java
-│           └── sentiment/VaderAnalyzerTest.java
+```text
+http://localhost:8080
 ```
 
----
+Use a different port when needed:
 
-## Running Automated Tests
-
-To run all 26 unit and integration tests:
 ```bash
-./mvnw clean test
+java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar --port=9090
+```
+
+Click **Sync now** to run the complete collection and sentiment pipeline.
+
+## Dashboard organization
+
+- **Comments:** Default view containing comment text, parent-post context, sentiment, score, timestamp, and that comment's reactions.
+- **Post reactions:** Post-level reaction totals and the per-post reaction breakdown.
+- **Reviews:** Page recommendations/reviews with ratings and sentiment.
+
+## Pagination
+
+The first request uses `fb.feed.limit` and `fb.comment.limit`. When Meta returns `paging.next`, the collector follows it until there is no next cursor or `fb.max.pages` is reached.
+
+Nested comment pagination is limited to the configured number of comments returned with each post. A separate comment-edge pagination workflow would be required to retrieve more comments than Meta returns in that nested result.
+
+## Tests
+
+```bash
+./mvnw test
+```
+
+## Main components
+
+```text
+src/main/java/com/fbscraper/
+├── App.java
+├── client/FacebookClient.java
+├── config/AppConfig.java
+├── model/
+├── sentiment/VaderAnalyzer.java
+├── service/SentimentSyncService.java
+├── report/HtmlDashboardGenerator.java
+└── web/LocalWebServer.java
+
+src/main/resources/
+├── config.properties.template
+├── vader_lexicon.txt
+└── web/index.html
 ```

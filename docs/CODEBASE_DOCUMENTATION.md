@@ -2,6 +2,8 @@
 
 This document provides an exhaustive, method-by-method, and line-by-line architectural breakdown of the **Facebook Scraper** project.
 
+> **Current runtime:** `App` starts an embedded browser dashboard. Clicking **Sync now** calls `POST /api/sync`, which uses `SentimentSyncService` to collect paginated posts, comments, reactions, ratings, and reviews. Comments are the default tab, post reactions have a separate tab, and comment reactions appear only on their individual rows. `HtmlDashboardGenerator` remains available for legacy standalone reports.
+
 ---
 
 ## 1. System Architecture & High-Level Flow
@@ -111,12 +113,13 @@ Represents the immutable runtime configuration of the application loaded strictl
 
 All models are implemented as Java Records (immutable, concise, thread-safe).
 
-#### 1. `FacebookComment(String id, String message, Instant createdTime)`
+#### 1. `FacebookComment(String id, String message, Instant createdTime, ReactionSummary reactions)`
 - Represents a single comment under a post.
-- Stores comment ID, textual message, and ISO timestamp.
+- Stores comment ID, text, timestamp, and its own reaction breakdown.
 
-#### 2. `FacebookPost(String id, String message, Instant createdTime, List<FacebookComment> comments)`
+#### 2. `FacebookPost(String id, String message, Instant createdTime, List<FacebookComment> comments, ReactionSummary reactions)`
 - Represents a page post containing a list of comments.
+- Stores post reactions separately from comment reactions.
 - **Compact Constructor:**
   ```java
   public FacebookPost {
@@ -275,17 +278,13 @@ Categorical classification derived from compound score:
 
 ### Component 6: `App.java`
 **Package:** `com.fbscraper`  
-**Purpose:** Orchestrator CLI entrypoint.
+**Purpose:** Embedded browser-dashboard entry point.
 
 #### Execution Pipeline:
 1. Loads configuration from `config.properties` via `AppConfig.load()`.
-2. Fetches page feed posts and comments with `client.fetchPageFeed()`.
-3. Fetches overall page rating summary via `client.fetchPageRatingSummary()`.
-4. Fetches customer reviews and recommendations via `client.fetchPageReviews()`.
-5. Analyzes all comments and review texts with `VaderAnalyzer`.
-6. Exports `output/comments.json` and `output/reviews.json`.
-7. Generates `output/dashboard.html`.
-8. Prints console KPIs and top flagged negative feedback.
+2. Constructs `SentimentSyncService` and starts `LocalWebServer`.
+3. Serves the dashboard at `http://localhost:8080`.
+4. Runs collection and sentiment analysis when the user clicks **Sync now**.
 
 ---
 
@@ -318,10 +317,11 @@ app.negative.threshold=-0.05
 
 ## 4. Test Suite Architecture
 
-The project has **26 automated tests** across 6 test classes with 100% pass rate:
+The automated tests cover configuration, API parsing, pagination, reactions, ratings, reviews, sentiment, report generation, and the local HTTP API:
 1. `AppConfigTest`: Tests default configurations and property loading from files.
 2. `FacebookClientTest`: Tests JSON parsing against feed structures, cursor pagination, `fetchPageRatingSummary()`, and `fetchPageReviews()`.
 3. `ModelTest`: Tests immutability and defensive copying of comments, `PageRatingSummary`, `FacebookReview`, and `AnalyzedReview`.
 4. `VaderAnalyzerTest` (8 tests): Tests punctuation boost, caps emphasis, negation handling, boosters, empty inputs.
 5. `HtmlDashboardGeneratorTest`: Validates HTML generation, KPI cards, Page Rating display, and reviews table rendering.
-6. `AppE2ETest`: End-to-end integration test verifying that running `App.main()` executes the pipeline and generates `output/dashboard.html`, `output/comments.json`, and `output/reviews.json`.
+6. `LocalWebServerTest`: Verifies the browser dashboard and `POST /api/sync` response.
+7. `AppE2ETest`: Verifies the combined sync pipeline and legacy HTML report generation.

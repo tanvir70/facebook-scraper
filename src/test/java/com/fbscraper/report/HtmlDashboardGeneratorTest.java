@@ -22,7 +22,13 @@ class HtmlDashboardGeneratorTest {
         FacebookComment badComment = new FacebookComment("c1", "Terrible app, crashes constantly!", now);
         FacebookComment goodComment = new FacebookComment("c2", "Loving the new design!", now);
 
-        FacebookPost post = new FacebookPost("p1", "Welcome to our page", now, List.of(badComment, goodComment));
+        FacebookPost post = new FacebookPost(
+                "p1",
+                "Welcome to our page",
+                now,
+                List.of(badComment, goodComment),
+                com.fbscraper.model.ReactionSummary.empty()
+        );
 
         SentimentScore badScore = new SentimentScore(-0.68, 0.0, 0.2, 0.8, SentimentLevel.CRITICAL_NEGATIVE);
         SentimentScore goodScore = new SentimentScore(0.72, 0.8, 0.2, 0.0, SentimentLevel.POSITIVE);
