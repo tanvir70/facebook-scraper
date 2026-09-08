@@ -155,13 +155,32 @@ public class HtmlDashboardGenerator {
             .append("      <div class=\"subtitle\">").append(positiveCount).append(" positive comments</div>\n")
             .append("    </div>\n");
 
-        if (ratingSummary != null && ratingSummary.hasRatings()) {
+        long reviewYesCount = analyzedReviews != null ? analyzedReviews.stream().filter(r -> "positive".equalsIgnoreCase(r.review().recommendationType())).count() : 0;
+        long reviewNoCount = analyzedReviews != null ? analyzedReviews.stream().filter(r -> "negative".equalsIgnoreCase(r.review().recommendationType())).count() : 0;
+        long totalReviews = analyzedReviews != null ? analyzedReviews.size() : 0;
+        long reviewOtherCount = totalReviews - (reviewYesCount + reviewNoCount);
+
+        boolean hasMetaRating = ratingSummary != null && ratingSummary.hasRatings();
+        if (hasMetaRating || totalReviews > 0) {
+            double avgRating = hasMetaRating
+                    ? ratingSummary.overallStarRating()
+                    : ((double) reviewYesCount / totalReviews) * 5.0;
+
+            String ratingSubtitle;
+            if (hasMetaRating && totalReviews > 0) {
+                ratingSubtitle = "Overall Page Rating · " + ratingSummary.ratingCount() + " total ratings (" + reviewYesCount + " Yes, " + reviewNoCount + " No)";
+            } else if (hasMetaRating) {
+                ratingSubtitle = "Overall Page Rating · " + ratingSummary.ratingCount() + " total ratings";
+            } else {
+                ratingSubtitle = reviewYesCount + " Recommends (Yes) · " + reviewNoCount + " Doesn't Rec. (No)";
+            }
+
             html.append("    <div class=\"card\">\n")
-                .append("      <div class=\"card-title\">Overall Page Rating</div>\n")
+                .append("      <div class=\"card-title\">Average Review Rating</div>\n")
                 .append("      <div class=\"card-value\" style=\"color: #fbbf24;\">⭐ ")
-                .append(String.format("%.1f", ratingSummary.overallStarRating()))
+                .append(String.format("%.1f", avgRating))
                 .append(" <span style=\"font-size: 1rem; color: var(--text-muted); font-weight: normal;\">/ 5.0</span></div>\n")
-                .append("      <div class=\"subtitle\">").append(ratingSummary.ratingCount()).append(" total ratings</div>\n")
+                .append("      <div class=\"subtitle\">").append(ratingSubtitle).append("</div>\n")
                 .append("    </div>\n");
         }
 
@@ -169,11 +188,25 @@ public class HtmlDashboardGenerator {
 
         // Charts & Insights
         html.append("  <div class=\"grid-charts\">\n")
+            // Comments sentiment doughnut chart
             .append("    <div class=\"card\">\n")
-            .append("      <div class=\"card-title\">Sentiment Breakdown</div>\n")
+            .append("      <div class=\"card-title\">Comment Sentiment Breakdown</div>\n")
             .append("      <div class=\"chart-container\">\n")
             .append("        <canvas id=\"sentimentChart\"></canvas>\n")
             .append("      </div>\n")
+            .append("    </div>\n")
+            // Customer reviews recommendation pie chart (reviews only)
+            .append("    <div class=\"card\">\n")
+            .append("      <div class=\"card-title\">Review Recommendations (Yes vs No)</div>\n")
+            .append("      <div class=\"chart-container\">\n");
+
+        if (totalReviews > 0) {
+            html.append("        <canvas id=\"reviewPieChart\"></canvas>\n");
+        } else {
+            html.append("        <div style=\"display: flex; justify-content: center; align-items: center; height: 100%; color: var(--text-muted); font-size: 0.9rem;\">No customer reviews recorded yet</div>\n");
+        }
+
+        html.append("      </div>\n")
             .append("    </div>\n")
             .append("    <div class=\"card\">\n")
             .append("      <div class=\"card-title\">Analysis Summary & Action Items</div>\n")
@@ -181,8 +214,13 @@ public class HtmlDashboardGenerator {
             .append("        <li><strong>Critical issues:</strong> ").append(criticalCount).append(" comments scored as severe complaints. Immediate support reply recommended.</li>\n")
             .append("        <li><strong>Mild dissatisfaction:</strong> ").append(warningCount).append(" comments noted minor issues or delays.</li>\n")
             .append("        <li><strong>Positive engagement:</strong> ").append(positiveCount).append(" happy customers sharing praise or satisfaction.</li>\n")
-            .append("        <li><strong>Neutral/Inquiries:</strong> ").append(neutralCount).append(" standard questions or informational queries.</li>\n")
-            .append("      </ul>\n")
+            .append("        <li><strong>Neutral/Inquiries:</strong> ").append(neutralCount).append(" standard questions or informational queries.</li>\n");
+
+        if (totalReviews > 0) {
+            html.append("        <li><strong>Customer Reviews:</strong> ").append(reviewYesCount).append(" recommended (Yes) vs ").append(reviewNoCount).append(" did not recommend (No).</li>\n");
+        }
+
+        html.append("      </ul>\n")
             .append("    </div>\n")
             .append("  </div>\n\n");
 
@@ -308,8 +346,42 @@ public class HtmlDashboardGenerator {
             .append("      maintainAspectRatio: false,\n")
             .append("      plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } }\n")
             .append("    }\n")
-            .append("  });\n\n")
-            .append("  function filterTable() {\n")
+            .append("  });\n\n");
+
+        if (totalReviews > 0) {
+            html.append("  const reviewEl = document.getElementById('reviewPieChart');\n")
+                .append("  if (reviewEl) {\n")
+                .append("    new Chart(reviewEl.getContext('2d'), {\n")
+                .append("      type: 'pie',\n")
+                .append("      data: {\n");
+
+            if (reviewOtherCount > 0) {
+                html.append("        labels: ['Recommends (Yes)', \"Doesn't Recommend (No)\", 'Other'],\n")
+                    .append("        datasets: [{\n")
+                    .append("          data: [").append(reviewYesCount).append(", ").append(reviewNoCount).append(", ").append(reviewOtherCount).append("],\n")
+                    .append("          backgroundColor: ['#10b981', '#ef4444', '#64748b'],\n")
+                    .append("          borderWidth: 0\n")
+                    .append("        }]\n");
+            } else {
+                html.append("        labels: ['Recommends (Yes)', \"Doesn't Recommend (No)\"],\n")
+                    .append("        datasets: [{\n")
+                    .append("          data: [").append(reviewYesCount).append(", ").append(reviewNoCount).append("],\n")
+                    .append("          backgroundColor: ['#10b981', '#ef4444'],\n")
+                    .append("          borderWidth: 0\n")
+                    .append("        }]\n");
+            }
+
+            html.append("      },\n")
+                .append("      options: {\n")
+                .append("        responsive: true,\n")
+                .append("        maintainAspectRatio: false,\n")
+                .append("        plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } }\n")
+                .append("      }\n")
+                .append("    });\n")
+                .append("  }\n\n");
+        }
+
+        html.append("  function filterTable() {\n")
             .append("    const filter = document.getElementById('searchInput').value.toLowerCase();\n")
             .append("    const rows = document.querySelectorAll('#negativeTable tbody tr');\n")
             .append("    rows.forEach(row => {\n")
