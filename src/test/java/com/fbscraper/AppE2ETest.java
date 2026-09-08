@@ -2,10 +2,7 @@ package com.fbscraper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fbscraper.model.AnalyzedComment;
-import com.fbscraper.model.FacebookComment;
-import com.fbscraper.model.FacebookPost;
-import com.fbscraper.model.SentimentScore;
+import com.fbscraper.model.*;
 import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
 import org.junit.jupiter.api.Test;
@@ -29,6 +26,10 @@ class AppE2ETest {
         FacebookPost post = new FacebookPost("p1", "Product Launch Post", Instant.now(), List.of(c1, c2));
         List<FacebookPost> posts = List.of(post);
 
+        PageRatingSummary ratingSummary = new PageRatingSummary(4.5, 50);
+        FacebookReview review1 = new FacebookReview(Instant.now(), "positive", "Outstanding service, highly recommended!", 5, true);
+        List<FacebookReview> reviews = List.of(review1);
+
         // Run analyzer
         VaderAnalyzer analyzer = VaderAnalyzer.createDefault();
         List<AnalyzedComment> analyzedComments = new ArrayList<>();
@@ -37,35 +38,52 @@ class AppE2ETest {
             analyzedComments.add(new AnalyzedComment(c, post.id(), post.message(), score));
         }
 
+        List<AnalyzedReview> analyzedReviews = new ArrayList<>();
+        for (FacebookReview rev : reviews) {
+            SentimentScore score = analyzer.analyze(rev.reviewText());
+            analyzedReviews.add(new AnalyzedReview(rev, score));
+        }
+
         // Generate dashboard
         Path dashboard = Path.of("output/test_dashboard.html");
         HtmlDashboardGenerator generator = new HtmlDashboardGenerator();
-        generator.generateReport(posts, analyzedComments, dashboard);
+        generator.generateReport(posts, analyzedComments, ratingSummary, analyzedReviews, dashboard);
 
-        // Generate comments JSON
+        // Generate comments and reviews JSON
         Path jsonPath = Path.of("output/test_comments.json");
+        Path reviewsJsonPath = Path.of("output/test_reviews.json");
         if (jsonPath.getParent() != null) {
             Files.createDirectories(jsonPath.getParent());
         }
         ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
         mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
+        mapper.writerWithDefaultPrettyPrinter().writeValue(reviewsJsonPath.toFile(), analyzedReviews);
 
         // Verify outputs
         assertThat(Files.exists(dashboard)).isTrue();
         assertThat(Files.exists(jsonPath)).isTrue();
+        assertThat(Files.exists(reviewsJsonPath)).isTrue();
 
         String html = Files.readString(dashboard);
         assertThat(html).contains("Facebook Scraper Dashboard");
         assertThat(html).contains("This update is HORRIBLE!");
         assertThat(html).contains("1 positive comments");
+        assertThat(html).contains("Overall Page Rating");
+        assertThat(html).contains("4.5");
+        assertThat(html).contains("Outstanding service, highly recommended!");
 
         String json = Files.readString(jsonPath);
         assertThat(json).contains("This update is HORRIBLE!");
         assertThat(json).contains("Awesome job");
         assertThat(json).contains("compound");
 
+        String revJson = Files.readString(reviewsJsonPath);
+        assertThat(revJson).contains("Outstanding service, highly recommended!");
+        assertThat(revJson).contains("POSITIVE");
+
         // Clean up test outputs
         Files.deleteIfExists(dashboard);
         Files.deleteIfExists(jsonPath);
+        Files.deleteIfExists(reviewsJsonPath);
     }
 }

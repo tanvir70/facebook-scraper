@@ -3,8 +3,12 @@ package com.fbscraper;
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.AnalyzedComment;
+import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.PageRatingSummary;
+import com.fbscraper.model.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
 import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
@@ -60,16 +64,29 @@ public class App {
         System.out.println("Alert Threshold: compound <= " + config.negativeThreshold());
         System.out.println("--------------------------------------------------");
 
-        // 2. Fetch Facebook Page Posts and Comments
+        // 2. Fetch Facebook Page Posts, Comments, Ratings, and Reviews
         FacebookClient client = new FacebookClient(config);
-        List<FacebookPost> posts = client.fetchPageFeed();
-
-        if (posts.isEmpty()) {
-            System.out.println("[App] No posts found to analyze.");
+        List<FacebookPost> posts;
+        try {
+            posts = client.fetchPageFeed();
+        } catch (IllegalStateException e) {
+            System.err.println("[App] Aborting: " + e.getMessage());
+            return;
+        } catch (RuntimeException e) {
+            System.err.println("[App] Scraping error: " + e.getMessage());
             return;
         }
 
-        System.out.printf("[App] Retrieved %d post(s)%n", posts.size());
+        // Fetch Page Ratings & Reviews
+        PageRatingSummary ratingSummary = client.fetchPageRatingSummary();
+        List<FacebookReview> reviews = client.fetchPageReviews();
+
+        if (posts.isEmpty() && reviews.isEmpty()) {
+            System.out.println("[App] No posts or reviews found to analyze.");
+            return;
+        }
+
+        System.out.printf("[App] Retrieved %d post(s) and %d review(s)%n", posts.size(), reviews.size());
 
         // 3. Initialize Sentiment Analyzer
         System.out.println("[App] Initializing VADER Sentiment Lexicon...");
@@ -88,9 +105,26 @@ public class App {
             }
         }
 
-        System.out.printf("[App] Scanned %d total comment(s)%n", analyzedComments.size());
+        // 5. Analyze Reviews
+        List<AnalyzedReview> analyzedReviews = new ArrayList<>();
+        for (FacebookReview review : reviews) {
+            String text = review.reviewText() != null ? review.reviewText() : "";
+            SentimentScore score;
+            if (!text.isBlank()) {
+                score = analyzer.analyze(text);
+            } else if (review.isPositiveRecommendation()) {
+                score = new SentimentScore(0.5, 0.5, 0.5, 0.0, SentimentLevel.POSITIVE);
+            } else if (review.isNegativeRecommendation()) {
+                score = new SentimentScore(-0.5, 0.0, 0.5, 0.5, SentimentLevel.CRITICAL_NEGATIVE);
+            } else {
+                score = new SentimentScore(0.0, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL);
+            }
+            analyzedReviews.add(new AnalyzedReview(review, score));
+        }
 
-        // 5. Compute Negative Sentiment Summary
+        System.out.printf("[App] Scanned %d comment(s) and %d review(s)%n", analyzedComments.size(), analyzedReviews.size());
+
+        // 6. Compute Negative Sentiment Summary
         List<AnalyzedComment> negativeComments = analyzedComments.stream()
                 .filter(c -> c.score().compound() <= config.negativeThreshold())
                 .sorted((a, b) -> Double.compare(a.score().compound(), b.score().compound()))
@@ -99,10 +133,15 @@ public class App {
         System.out.println("--------------------------------------------------");
         System.out.println("                 ANALYSIS SUMMARY                 ");
         System.out.println("--------------------------------------------------");
+        if (ratingSummary.hasRatings()) {
+            System.out.printf("Overall Page Rating     : ⭐ %.1f / 5.0 (%d total ratings)%n",
+                    ratingSummary.overallStarRating(), ratingSummary.ratingCount());
+        }
         System.out.printf("Total Comments Scanned  : %d%n", analyzedComments.size());
-        System.out.printf("Flagged Negative Feedback: %d%n", negativeComments.size());
+        System.out.printf("Total Reviews Scanned   : %d%n", analyzedReviews.size());
+        System.out.printf("Flagged Negative Comments: %d%n", negativeComments.size());
         double negRate = analyzedComments.isEmpty() ? 0.0 : ((double) negativeComments.size() / analyzedComments.size()) * 100.0;
-        System.out.printf("Negative Sentiment Rate : %.1f%%%n", negRate);
+        System.out.printf("Negative Comment Rate   : %.1f%%%n", negRate);
 
         if (!negativeComments.isEmpty()) {
             System.out.println("\nTop Flagged Negative Comments:");
@@ -114,16 +153,17 @@ public class App {
                         neg.comment().message().replace("\n", " "));
             }
         } else {
-            System.out.println("\nAll clear! No negative sentiment detected.");
+            System.out.println("\nAll clear! No negative comment sentiment detected.");
         }
 
-        // 6. Generate Standalone HTML Dashboard
+        // 7. Generate Standalone HTML Dashboard
         Path outputPath = Path.of("output/dashboard.html");
         HtmlDashboardGenerator generator = new HtmlDashboardGenerator();
-        generator.generateReport(posts, analyzedComments, outputPath);
+        generator.generateReport(posts, analyzedComments, ratingSummary, analyzedReviews, outputPath);
 
-        // 7. Save Raw Scraped Comments as JSON
+        // 8. Save Raw Scraped Data as JSON
         Path jsonPath = Path.of("output/comments.json");
+        Path reviewsJsonPath = Path.of("output/reviews.json");
         try {
             if (jsonPath.getParent() != null) {
                 java.nio.file.Files.createDirectories(jsonPath.getParent());
@@ -131,13 +171,15 @@ public class App {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper()
                     .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
             mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
+            mapper.writerWithDefaultPrettyPrinter().writeValue(reviewsJsonPath.toFile(), analyzedReviews);
         } catch (java.io.IOException e) {
-            System.err.println("[App] Failed to save comments.json: " + e.getMessage());
+            System.err.println("[App] Failed to save JSON data: " + e.getMessage());
         }
 
         System.out.println("==================================================");
         System.out.println("Dashboard Ready : " + outputPath.toAbsolutePath());
-        System.out.println("JSON Data Saved : " + jsonPath.toAbsolutePath());
+        System.out.println("Comments JSON   : " + jsonPath.toAbsolutePath());
+        System.out.println("Reviews JSON    : " + reviewsJsonPath.toAbsolutePath());
         System.out.println("Open dashboard  : google-chrome " + outputPath.toAbsolutePath());
         System.out.println("==================================================");
     }

@@ -2,6 +2,8 @@ package com.fbscraper.client;
 
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.PageRatingSummary;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLSession;
@@ -46,9 +48,11 @@ class FacebookClientTest {
         assertThat(url).contains("limit=100");
         assertThat(url).contains("%7B");
         assertThat(url).contains("%7D");
+        assertThat(url).contains("access_token=EAABsample");
 
         String decodedUrl = URLDecoder.decode(url, StandardCharsets.UTF_8);
         assertThat(decodedUrl).contains("comments.limit(100){id,message,created_time}");
+        assertThat(decodedUrl).contains("access_token=EAABsample");
     }
 
     @Test
@@ -174,5 +178,108 @@ class FacebookClientTest {
         assertThatThrownBy(client::fetchPageFeed)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Missing required fb.page.id or fb.access.token");
+    }
+
+    @Test
+    void shouldFetchPageRatingSummarySuccessfully() {
+        String json = """
+        {
+          "overall_star_rating": 4.8,
+          "rating_count": 150,
+          "id": "123"
+        }
+        """;
+
+        AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
+        FacebookClient client = new FacebookClient(config, req -> new FakeResponse(200, json));
+
+        PageRatingSummary summary = client.fetchPageRatingSummary();
+
+        assertThat(summary.overallStarRating()).isEqualTo(4.8);
+        assertThat(summary.ratingCount()).isEqualTo(150);
+        assertThat(summary.hasRatings()).isTrue();
+    }
+
+    @Test
+    void shouldReturnEmptyRatingSummaryOnError() {
+        AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
+        FacebookClient client = new FacebookClient(config, req -> new FakeResponse(400, "{\"error\":{}}"));
+
+        PageRatingSummary summary = client.fetchPageRatingSummary();
+        assertThat(summary.hasRatings()).isFalse();
+        assertThat(summary.overallStarRating()).isEqualTo(0.0);
+    }
+
+    @Test
+    void shouldFetchPageReviewsWithPagination() {
+        String page1Json = """
+        {
+          "data": [
+            {
+              "created_time": "2026-08-01T12:00:00+0000",
+              "recommendation_type": "positive",
+              "review_text": "Excellent service!",
+              "rating": 5,
+              "has_review": true
+            }
+          ],
+          "paging": {
+            "next": "https://graph.facebook.com/v26.0/123/ratings?after=next"
+          }
+        }
+        """;
+
+        String page2Json = """
+        {
+          "data": [
+            {
+              "created_time": "2026-07-20T10:00:00+0000",
+              "recommendation_type": "negative",
+              "review_text": "Did not arrive on time.",
+              "rating": 2,
+              "has_review": true
+            }
+          ],
+          "paging": {}
+        }
+        """;
+
+        Queue<HttpResponse<String>> queue = new LinkedList<>(List.of(
+                new FakeResponse(200, page1Json),
+                new FakeResponse(200, page2Json)
+        ));
+
+        AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
+        FacebookClient client = new FacebookClient(config, req -> queue.poll());
+
+        List<FacebookReview> reviews = client.fetchPageReviews();
+
+        assertThat(reviews).hasSize(2);
+        assertThat(reviews.get(0).reviewText()).isEqualTo("Excellent service!");
+        assertThat(reviews.get(0).isPositiveRecommendation()).isTrue();
+        assertThat(reviews.get(1).reviewText()).isEqualTo("Did not arrive on time.");
+        assertThat(reviews.get(1).isNegativeRecommendation()).isTrue();
+    }
+
+    @Test
+    void shouldHandleExpiredAccessTokenWithHelpfulErrorMessage() {
+        String errorJson = """
+        {
+          "error": {
+            "message": "Error validating access token: Session has expired on Monday, 07-Sep-26 02:00:00 PDT.",
+            "type": "OAuthException",
+            "code": 190,
+            "error_subcode": 463
+          }
+        }
+        """;
+
+        AppConfig config = new AppConfig("123", "expired_token", "v26.0", 100, 100, 5, -0.05);
+        FacebookClient client = new FacebookClient(config, req -> new FakeResponse(401, errorJson));
+
+        assertThatThrownBy(client::fetchPageFeed)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Facebook Access Token is expired or invalid")
+                .hasMessageContaining("Session has expired");
     }
 }

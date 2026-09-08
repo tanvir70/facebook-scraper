@@ -34,4 +34,29 @@ class ModelTest {
         FacebookPost post = new FacebookPost("p2", "Post without comments", Instant.now(), null);
         assertThat(post.comments()).isNotNull().isEmpty();
     }
+
+    @Test
+    void shouldCreateAndVerifyPageRatingSummary() {
+        PageRatingSummary summary = new PageRatingSummary(4.6, 120);
+        assertThat(summary.overallStarRating()).isEqualTo(4.6);
+        assertThat(summary.ratingCount()).isEqualTo(120);
+        assertThat(summary.hasRatings()).isTrue();
+
+        assertThat(PageRatingSummary.EMPTY.hasRatings()).isFalse();
+    }
+
+    @Test
+    void shouldCreateAndVerifyFacebookReviewAndAnalyzedReview() {
+        Instant now = Instant.now();
+        FacebookReview review = new FacebookReview(now, "positive", "Great staff!", 5, true);
+        assertThat(review.isPositiveRecommendation()).isTrue();
+        assertThat(review.isNegativeRecommendation()).isFalse();
+        assertThat(review.reviewText()).isEqualTo("Great staff!");
+        assertThat(review.rating()).isEqualTo(5);
+
+        SentimentScore score = new SentimentScore(0.62, 0.4, 0.6, 0.0, SentimentLevel.POSITIVE);
+        AnalyzedReview analyzedReview = new AnalyzedReview(review, score);
+        assertThat(analyzedReview.score().compound()).isEqualTo(0.62);
+        assertThat(analyzedReview.review().reviewText()).isEqualTo("Great staff!");
+    }
 }
