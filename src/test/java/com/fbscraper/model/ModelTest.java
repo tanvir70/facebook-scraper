@@ -73,4 +73,34 @@ class ModelTest {
         assertThat(analyzedReview.score().compound()).isEqualTo(0.62);
         assertThat(analyzedReview.review().reviewText()).isEqualTo("Great staff!");
     }
+
+    @Test
+    void shouldCreateAndVerifyMessengerModels() {
+        Instant now = Instant.now();
+        FacebookParticipant user = new FacebookParticipant("u1", "Jane Doe", "jane@example.com");
+        FacebookParticipant page = new FacebookParticipant("p1", "My Page", null);
+
+        FacebookMessage msg = new FacebookMessage("m1", "Need help with order", now, user, List.of(page));
+        FacebookConversation conv = new FacebookConversation("t1", now, List.of(user, page), List.of(msg));
+
+        assertThat(conv.id()).isEqualTo("t1");
+        assertThat(conv.messages()).hasSize(1);
+        assertThat(conv.messages().get(0).from().name()).isEqualTo("Jane Doe");
+
+        SentimentScore score = new SentimentScore(-0.6, 0.1, 0.3, 0.6, SentimentLevel.CRITICAL_NEGATIVE);
+        AnalyzedMessage analyzedMsg = new AnalyzedMessage(msg, false, score, true);
+        assertThat(analyzedMsg.isFromPage()).isFalse();
+        assertThat(analyzedMsg.flagged()).isTrue();
+
+        AnalyzedConversation analyzedConv = new AnalyzedConversation(
+                "t1", now, List.of(user, page), List.of(analyzedMsg), SentimentLevel.CRITICAL_NEGATIVE, 1, 0
+        );
+        assertThat(analyzedConv.overallSentiment()).isEqualTo(SentimentLevel.CRITICAL_NEGATIVE);
+        assertThat(analyzedConv.customerMessageCount()).isEqualTo(1);
+        assertThat(analyzedConv.pageMessageCount()).isEqualTo(0);
+
+        MessageSentimentSummary summary = new MessageSentimentSummary(1, 1, 1, 0, 0, 0, 0, 1, 100.0);
+        assertThat(summary.criticalMessages()).isEqualTo(1);
+        assertThat(summary.negativeRate()).isEqualTo(100.0);
+    }
 }
