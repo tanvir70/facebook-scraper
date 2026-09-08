@@ -62,11 +62,9 @@ class HtmlDashboardGeneratorTest {
         assertThat(Files.exists(reportFile)).isTrue();
         String html = Files.readString(reportFile);
 
-        assertThat(html).contains("Overall 5-Star Rating");
-        assertThat(html).contains("5-Star Rating Breakdown");
-        assertThat(html).contains("Meta Official Rating");
+        assertThat(html).contains("Overall Page Rating");
         assertThat(html).contains("4.7");
-        assertThat(html).contains("95 total Meta ratings");
+        assertThat(html).contains("95 total ratings");
         assertThat(html).contains("Customer Reviews & Recommendations (2)");
         assertThat(html).contains("Super helpful service, loved it!");
         assertThat(html).contains("Slow delivery and poor support.");

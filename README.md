@@ -9,17 +9,15 @@ A modular Java 21 application designed to scrape posts, nested comments, and cus
 - **Official Facebook Graph API Integration:** Clean HTTP REST client using native `java.net.http.HttpClient` with Bearer Token authentication.
 - **Cursor-Based Feed & Reviews Pagination:** Follows Facebook's `paging.next` cursor across multiple pages to fetch historical posts, comments, and reviews without hitting arbitrary page limits.
 - **Page Ratings & Reviews Scraping:** Retrieves `overall_star_rating` and `rating_count`, plus all customer recommendations and reviews via the `/{page-id}/ratings` endpoint.
-- **5-Star Rating & Distribution Breakdown:** Maps local sentiment scores (VADER) and customer reviews to an overall 1.0–5.0 star scale with an Amazon/Google-style horizontal breakdown bar card (5★ to 1★ percentages and counts), plus individual star badges on comments and reviews.
 - **Granular Limit Control:** Separately configure posts per page (`fb.feed.limit=100`) and nested comments per post (`fb.comment.limit=100`).
 - **Direct Configuration:** Reads directly from a single `config.properties` file without complex classpath or environment variable indirections.
 - **Local VADER NLP Engine:** Fast in-memory sentiment scoring tailored specifically for social media (accounts for all-caps emphasis, exclamation marks `!`, negation reversal, and booster words).
 - **Interactive HTML Dashboard:** Generates `output/dashboard.html` with:
-  - KPI summary cards (Total Posts, Total Comments, Overall 5-Star Rating ⭐, Meta Official Rating, Positive & Negative Feedback Rate %, Health Status).
-  - 5-Star distribution breakdown bar chart (5★ to 1★ counts & percentages).
+  - KPI summary cards (Total Posts, Total Comments, Overall Page Rating ⭐, Negative Feedback Rate %, Health Status).
   - Visual doughnut chart (powered by Chart.js).
-  - Actionable table of flagged negative comments with ⭐ star badges and real-time keyword search.
-  - Full table of customer recommendations and reviews with ⭐ star badges and sentiment classifications.
-- **Raw JSON Data Export:** Saves analyzed comments to `output/comments.json`, analyzed reviews to `output/reviews.json`, and the complete 5-star rating summary to `output/rating_summary.json` for downstream analytics.
+  - Actionable table of flagged negative comments with real-time keyword search.
+  - Full table of customer recommendations and reviews with sentiment classifications.
+- **Raw JSON Data Export:** Saves analyzed comments to `output/comments.json` and analyzed reviews to `output/reviews.json` for downstream analytics.
 - **Zero Heavy Frameworks:** Minimal dependencies (Jackson for JSON, JUnit 5 + AssertJ for testing).
 - **IntelliJ IDEA Ready:** Pre-configured with Maven Wrapper (`./mvnw`).
 
@@ -77,11 +75,10 @@ java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
   # or
   xdg-open output/dashboard.html
   ```
-- **Raw Comments, Reviews & 5-Star Rating JSON:**
+- **Raw Comments & Reviews JSON:**
   ```bash
   cat output/comments.json
   cat output/reviews.json
-  cat output/rating_summary.json
   ```
 
 ---
@@ -114,17 +111,16 @@ facebook-scraper/
 │   │   │   │   ├── FacebookComment.java
 │   │   │   │   ├── FacebookReview.java       # Customer review / recommendation record
 │   │   │   │   ├── PageRatingSummary.java    # Page overall star rating & count
-│   │   │   │   ├── SentimentScore.java       # Score distribution & starRating (1-5)
+│   │   │   │   ├── SentimentScore.java
 │   │   │   │   ├── SentimentLevel.java
 │   │   │   │   ├── AnalyzedComment.java
-│   │   │   │   ├── AnalyzedReview.java       # Sentiment-evaluated review record
-│   │   │   │   └── StarRatingBreakdown.java  # 5-Star distribution & weighted rating calculator
+│   │   │   │   └── AnalyzedReview.java       # Sentiment-evaluated review record
 │   │   │   ├── client/
 │   │   │   │   └── FacebookClient.java       # Graph API client (feed & reviews pagination)
 │   │   │   ├── sentiment/
 │   │   │   │   └── VaderAnalyzer.java        # Local VADER sentiment engine
 │   │   │   └── report/
-│   │   │       └── HtmlDashboardGenerator.java # HTML report builder with 5-star cards & reviews
+│   │   │       └── HtmlDashboardGenerator.java # HTML report builder with reviews & ratings
 │   │   └── resources/
 │   │       └── vader_lexicon.txt             # 7,500+ token sentiment lexicon
 │   └── test/
@@ -133,7 +129,6 @@ facebook-scraper/
 │           ├── client/FacebookClientTest.java
 │           ├── config/AppConfigTest.java
 │           ├── model/ModelTest.java
-│           ├── model/StarRatingBreakdownTest.java
 │           ├── report/HtmlDashboardGeneratorTest.java
 │           └── sentiment/VaderAnalyzerTest.java
 ```
@@ -142,7 +137,7 @@ facebook-scraper/
 
 ## Running Automated Tests
 
-To run all 32 unit and integration tests:
+To run all 26 unit and integration tests:
 ```bash
 ./mvnw clean test
 ```

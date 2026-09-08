@@ -16,12 +16,6 @@ class ModelTest {
         assertThat(score.compound()).isEqualTo(-0.65);
         assertThat(score.isNegative()).isTrue();
         assertThat(score.level()).isEqualTo(SentimentLevel.CRITICAL_NEGATIVE);
-        assertThat(score.starRating()).isEqualTo(1);
-
-        assertThat(new SentimentScore(0.85, 0.5, 0.5, 0.0, SentimentLevel.POSITIVE).starRating()).isEqualTo(5);
-        assertThat(new SentimentScore(0.35, 0.3, 0.7, 0.0, SentimentLevel.POSITIVE).starRating()).isEqualTo(4);
-        assertThat(new SentimentScore(0.00, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL).starRating()).isEqualTo(3);
-        assertThat(new SentimentScore(-0.20, 0.0, 0.8, 0.2, SentimentLevel.WARNING_NEGATIVE).starRating()).isEqualTo(2);
     }
 
     @Test

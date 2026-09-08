@@ -10,7 +10,6 @@ import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
-import com.fbscraper.model.StarRatingBreakdown;
 import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
 
@@ -125,42 +124,42 @@ public class App {
 
         System.out.printf("[App] Scanned %d comment(s) and %d review(s)%n", analyzedComments.size(), analyzedReviews.size());
 
-        // 6. Compute 5-Star Rating & Sentiment Summary
-        StarRatingBreakdown starRating = StarRatingBreakdown.compute(analyzedComments, analyzedReviews);
-
+        // 6. Compute Negative Sentiment Summary
         List<AnalyzedComment> negativeComments = analyzedComments.stream()
                 .filter(c -> c.score().compound() <= config.negativeThreshold())
                 .sorted((a, b) -> Double.compare(a.score().compound(), b.score().compound()))
                 .toList();
 
+        long reviewYesCount = analyzedReviews.stream().filter(r -> "positive".equalsIgnoreCase(r.review().recommendationType())).count();
+        long reviewNoCount = analyzedReviews.stream().filter(r -> "negative".equalsIgnoreCase(r.review().recommendationType())).count();
+
         System.out.println("--------------------------------------------------");
         System.out.println("                 ANALYSIS SUMMARY                 ");
         System.out.println("--------------------------------------------------");
-        if (ratingSummary.hasRatings()) {
-            System.out.printf("Meta Page Rating        : ⭐ %.1f / 5.0 (%d total ratings)%n",
+        if (ratingSummary != null && ratingSummary.hasRatings()) {
+            System.out.printf("Average Review Rating   : ⭐ %.1f / 5.0 (%d total Meta ratings)%n",
                     ratingSummary.overallStarRating(), ratingSummary.ratingCount());
+        } else if (!analyzedReviews.isEmpty()) {
+            double avg = ((double) reviewYesCount / analyzedReviews.size()) * 5.0;
+            System.out.printf("Average Review Rating   : ⭐ %.1f / 5.0 (Yes/No recommendation basis)%n", avg);
         }
-        System.out.printf("Overall 5-Star Rating   : ⭐ %.1f / 5.0 (%s)%n",
-                starRating.averageRating(), starRating.formattedStars());
         System.out.printf("Total Comments Scanned  : %d%n", analyzedComments.size());
-        System.out.printf("Total Reviews Scanned   : %d%n", analyzedReviews.size());
-        System.out.printf("Total Positive Feedback : %d (%.1f%%)%n", starRating.totalPositive(), starRating.positivePercent());
-        System.out.printf("Total Negative Feedback : %d (%.1f%%)%n", starRating.totalNegative(), starRating.negativePercent());
-
-        System.out.println("\n5-Star Distribution Breakdown:");
-        System.out.printf("  5 Stars (★★★★★) : %3d (%5.1f%%)%n", starRating.fiveStarCount(), starRating.fiveStarPercent());
-        System.out.printf("  4 Stars (★★★★☆) : %3d (%5.1f%%)%n", starRating.fourStarCount(), starRating.fourStarPercent());
-        System.out.printf("  3 Stars (★★★☆☆) : %3d (%5.1f%%)%n", starRating.threeStarCount(), starRating.threeStarPercent());
-        System.out.printf("  2 Stars (★★☆☆☆) : %3d (%5.1f%%)%n", starRating.twoStarCount(), starRating.twoStarPercent());
-        System.out.printf("  1 Star  (★☆☆☆☆) : %3d (%5.1f%%)%n", starRating.oneStarCount(), starRating.oneStarPercent());
+        System.out.printf("Flagged Negative Comments: %d%n", negativeComments.size());
+        double negRate = analyzedComments.isEmpty() ? 0.0 : ((double) negativeComments.size() / analyzedComments.size()) * 100.0;
+        System.out.printf("Negative Comment Rate   : %.1f%%%n", negRate);
+        if (!analyzedReviews.isEmpty()) {
+            System.out.printf("Total Reviews Scanned   : %d%n", analyzedReviews.size());
+            System.out.printf("  - Recommends (Yes)    : %d%n", reviewYesCount);
+            System.out.printf("  - Doesn't Rec. (No)   : %d%n", reviewNoCount);
+        }
 
         if (!negativeComments.isEmpty()) {
             System.out.println("\nTop Flagged Negative Comments:");
             int count = 0;
             for (AnalyzedComment neg : negativeComments) {
                 if (++count > 5) break;
-                System.out.printf("  [%s | ⭐ %d/5 | Score: %.2f] \"%s\"%n",
-                        neg.score().level(), neg.score().starRating(), neg.score().compound(),
+                System.out.printf("  [%s | Score: %.2f] \"%s\"%n",
+                        neg.score().level(), neg.score().compound(),
                         neg.comment().message().replace("\n", " "));
             }
         } else {
@@ -170,12 +169,11 @@ public class App {
         // 7. Generate Standalone HTML Dashboard
         Path outputPath = Path.of("output/dashboard.html");
         HtmlDashboardGenerator generator = new HtmlDashboardGenerator();
-        generator.generateReport(posts, analyzedComments, ratingSummary, analyzedReviews, starRating, outputPath);
+        generator.generateReport(posts, analyzedComments, ratingSummary, analyzedReviews, outputPath);
 
         // 8. Save Raw Scraped Data as JSON
         Path jsonPath = Path.of("output/comments.json");
         Path reviewsJsonPath = Path.of("output/reviews.json");
-        Path ratingJsonPath = Path.of("output/rating_summary.json");
         try {
             if (jsonPath.getParent() != null) {
                 java.nio.file.Files.createDirectories(jsonPath.getParent());
@@ -184,7 +182,6 @@ public class App {
                     .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
             mapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), analyzedComments);
             mapper.writerWithDefaultPrettyPrinter().writeValue(reviewsJsonPath.toFile(), analyzedReviews);
-            mapper.writerWithDefaultPrettyPrinter().writeValue(ratingJsonPath.toFile(), starRating);
         } catch (java.io.IOException e) {
             System.err.println("[App] Failed to save JSON data: " + e.getMessage());
         }
@@ -193,7 +190,6 @@ public class App {
         System.out.println("Dashboard Ready : " + outputPath.toAbsolutePath());
         System.out.println("Comments JSON   : " + jsonPath.toAbsolutePath());
         System.out.println("Reviews JSON    : " + reviewsJsonPath.toAbsolutePath());
-        System.out.println("Rating JSON     : " + ratingJsonPath.toAbsolutePath());
         System.out.println("Open dashboard  : google-chrome " + outputPath.toAbsolutePath());
         System.out.println("==================================================");
     }
