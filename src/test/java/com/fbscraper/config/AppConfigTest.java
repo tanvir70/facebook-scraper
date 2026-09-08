@@ -20,6 +20,8 @@ class AppConfigTest {
         assertThat(config.commentLimit()).isEqualTo(100);
         assertThat(config.maxPages()).isEqualTo(5);
         assertThat(config.negativeThreshold()).isEqualTo(-0.05);
+        assertThat(config.conversationLimit()).isEqualTo(100);
+        assertThat(config.messageLimit()).isEqualTo(100);
     }
 
     @Test
@@ -30,6 +32,8 @@ class AppConfigTest {
         props.setProperty("fb.api.version", "v26.0");
         props.setProperty("fb.feed.limit", "50");
         props.setProperty("fb.comment.limit", "75");
+        props.setProperty("fb.conversation.limit", "40");
+        props.setProperty("fb.message.limit", "60");
         props.setProperty("fb.max.pages", "10");
         props.setProperty("app.negative.threshold", "-0.15");
 
@@ -40,6 +44,8 @@ class AppConfigTest {
         assertThat(config.apiVersion()).isEqualTo("v26.0");
         assertThat(config.feedLimit()).isEqualTo(50);
         assertThat(config.commentLimit()).isEqualTo(75);
+        assertThat(config.conversationLimit()).isEqualTo(40);
+        assertThat(config.messageLimit()).isEqualTo(60);
         assertThat(config.maxPages()).isEqualTo(10);
         assertThat(config.negativeThreshold()).isEqualTo(-0.15);
     }

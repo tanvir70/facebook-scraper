@@ -16,6 +16,8 @@ import java.util.Properties;
  * @param apiVersion        Facebook Graph API version (default "v26.0")
  * @param feedLimit         Number of posts to fetch per page (default 100, Meta max)
  * @param commentLimit      Number of comments to fetch per post (default 100, Meta max)
+ * @param conversationLimit Number of conversation threads to fetch per page (default 100, Meta max)
+ * @param messageLimit      Number of nested messages to fetch per conversation thread (default 100, Meta max)
  * @param maxPages          Maximum number of feed pages to paginate through (default 5; 0 for unlimited)
  * @param negativeThreshold Compound score threshold below which comments are flagged as negative (default -0.05)
  */
@@ -25,14 +27,30 @@ public record AppConfig(
         String apiVersion,
         int feedLimit,
         int commentLimit,
+        int conversationLimit,
+        int messageLimit,
         int maxPages,
         double negativeThreshold
 ) {
     public static final String DEFAULT_API_VERSION = "v26.0";
     public static final int DEFAULT_FEED_LIMIT = 100;
     public static final int DEFAULT_COMMENT_LIMIT = 100;
+    public static final int DEFAULT_CONVERSATION_LIMIT = 100;
+    public static final int DEFAULT_MESSAGE_LIMIT = 100;
     public static final int DEFAULT_MAX_PAGES = 5;
     public static final double DEFAULT_NEGATIVE_THRESHOLD = -0.05;
+
+    public AppConfig(
+            String pageId,
+            String accessToken,
+            String apiVersion,
+            int feedLimit,
+            int commentLimit,
+            int maxPages,
+            double negativeThreshold
+    ) {
+        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, maxPages, negativeThreshold);
+    }
 
     /**
      * Loads configuration strictly from a {@code config.properties} file.
@@ -94,10 +112,12 @@ public record AppConfig(
 
         int feedLimit = parseIntOrDefault(props.getProperty("fb.feed.limit"), DEFAULT_FEED_LIMIT);
         int commentLimit = parseIntOrDefault(props.getProperty("fb.comment.limit"), DEFAULT_COMMENT_LIMIT);
+        int conversationLimit = parseIntOrDefault(props.getProperty("fb.conversation.limit"), DEFAULT_CONVERSATION_LIMIT);
+        int messageLimit = parseIntOrDefault(props.getProperty("fb.message.limit"), DEFAULT_MESSAGE_LIMIT);
         int maxPages = parseIntOrDefault(props.getProperty("fb.max.pages"), DEFAULT_MAX_PAGES);
         double negativeThreshold = parseDoubleOrDefault(props.getProperty("app.negative.threshold"), DEFAULT_NEGATIVE_THRESHOLD);
 
-        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, maxPages, negativeThreshold);
+        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, maxPages, negativeThreshold);
     }
 
     private static int parseIntOrDefault(String str, int defaultVal) {
