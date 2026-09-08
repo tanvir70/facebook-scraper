@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.FacebookComment;
+import com.fbscraper.model.FacebookConversation;
+import com.fbscraper.model.FacebookMessage;
+import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.PageRatingSummary;
@@ -26,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Meta Graph API client for paginated Page posts, comments, reactions, ratings, and reviews.
+ * Meta Graph API client for paginated Page posts, comments, reactions, ratings, reviews, and inbox messages.
  */
 public class FacebookClient {
 
@@ -34,6 +37,9 @@ public class FacebookClient {
     }
 
     public record ReviewPage(List<FacebookReview> reviews, String nextUrl) {
+    }
+
+    public record ConversationPage(List<FacebookConversation> conversations, String nextUrl) {
     }
 
     @FunctionalInterface
@@ -262,6 +268,150 @@ public class FacebookClient {
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Facebook reviews JSON", e);
         }
+    }
+
+    public List<FacebookConversation> fetchPageConversations() {
+        if (!credentialsPresent()) {
+            return List.of();
+        }
+
+        List<FacebookConversation> allConversations = new ArrayList<>();
+        String currentUrl = buildConversationsUrl();
+        int pageCount = 0;
+
+        System.out.printf(
+                "[FacebookClient] Fetching conversations and inbox messages (conversations/page=%d, messages/thread=%d)%n",
+                config.conversationLimit(),
+                config.messageLimit()
+        );
+
+        while (hasText(currentUrl)) {
+            pageCount++;
+            try {
+                HttpResponse<String> response = sendGet(currentUrl, Duration.ofSeconds(25));
+                if (response.statusCode() != 200) {
+                    String body = response.body();
+                    if (isMessagingPermissionError(body)) {
+                        System.err.println("[FacebookClient] Page conversations inaccessible (missing pages_messaging permission on access token). Skipping inbox extraction.");
+                        break;
+                    }
+                    System.err.println("[FacebookClient] Could not fetch Page conversations [HTTP " + response.statusCode() + "]: " + body);
+                    break;
+                }
+
+                ConversationPage page = parseConversationsPage(response.body());
+                if (page.conversations().isEmpty()) {
+                    break;
+                }
+                allConversations.addAll(page.conversations());
+
+                System.out.printf(
+                        "[FacebookClient] Conversation page %d returned %d threads (total=%d)%n",
+                        pageCount,
+                        page.conversations().size(),
+                        allConversations.size()
+                );
+
+                if (reachedPageLimit(pageCount)) {
+                    break;
+                }
+                currentUrl = withAccessToken(page.nextUrl());
+            } catch (RuntimeException e) {
+                System.err.println("[FacebookClient] Could not fetch Page conversations: " + e.getMessage());
+                break;
+            }
+        }
+
+        return allConversations;
+    }
+
+    public String buildConversationsUrl() {
+        String fields = String.format(
+                "id,updated_time,participants,messages.limit(%d){id,message,created_time,from,to}",
+                config.messageLimit()
+        );
+        String url = String.format(
+                "https://graph.facebook.com/%s/%s/conversations?fields=%s&limit=%d",
+                config.apiVersion(),
+                config.pageId(),
+                URLEncoder.encode(fields, StandardCharsets.UTF_8),
+                config.conversationLimit()
+        );
+        return withAccessToken(url);
+    }
+
+    public ConversationPage parseConversationsPage(String json) {
+        List<FacebookConversation> conversations = new ArrayList<>();
+
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode data = root.path("data");
+            if (data.isArray()) {
+                for (JsonNode convNode : data) {
+                    List<FacebookParticipant> participants = parseParticipants(convNode.path("participants").path("data"));
+                    List<FacebookMessage> messages = parseMessages(convNode.path("messages").path("data"));
+                    conversations.add(new FacebookConversation(
+                            convNode.path("id").asText(""),
+                            parseInstant(convNode.path("updated_time").asText("")),
+                            participants,
+                            messages
+                    ));
+                }
+            }
+            return new ConversationPage(conversations, pagingNext(root));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to parse Facebook conversations JSON", e);
+        }
+    }
+
+    private List<FacebookParticipant> parseParticipants(JsonNode data) {
+        List<FacebookParticipant> list = new ArrayList<>();
+        if (data.isArray()) {
+            for (JsonNode node : data) {
+                list.add(new FacebookParticipant(
+                        node.path("id").asText(""),
+                        node.path("name").asText(""),
+                        node.hasNonNull("email") ? node.path("email").asText("") : null
+                ));
+            }
+        }
+        return list;
+    }
+
+    private List<FacebookMessage> parseMessages(JsonNode data) {
+        List<FacebookMessage> list = new ArrayList<>();
+        if (data.isArray()) {
+            for (JsonNode node : data) {
+                FacebookParticipant from = null;
+                if (node.hasNonNull("from")) {
+                    JsonNode fromNode = node.get("from");
+                    from = new FacebookParticipant(
+                            fromNode.path("id").asText(""),
+                            fromNode.path("name").asText(""),
+                            fromNode.hasNonNull("email") ? fromNode.path("email").asText("") : null
+                    );
+                }
+                List<FacebookParticipant> to = parseParticipants(node.path("to").path("data"));
+                list.add(new FacebookMessage(
+                        node.path("id").asText(""),
+                        node.path("message").asText(""),
+                        parseInstant(node.path("created_time").asText("")),
+                        from,
+                        to
+                ));
+            }
+        }
+        return list;
+    }
+
+    private boolean isMessagingPermissionError(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return false;
+        }
+        String lower = responseBody.toLowerCase();
+        return lower.contains("pages_messaging")
+                || lower.contains("read_page_mailboxes")
+                || (lower.contains("permission") && lower.contains("conversation"));
     }
 
     private HttpResponse<String> sendGet(String url, Duration timeout) {

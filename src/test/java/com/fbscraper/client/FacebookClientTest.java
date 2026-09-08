@@ -1,6 +1,9 @@
 package com.fbscraper.client;
 
 import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.FacebookConversation;
+import com.fbscraper.model.FacebookMessage;
+import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.PageRatingSummary;
@@ -164,6 +167,63 @@ class FacebookClientTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("expired or invalid")
                 .hasMessageContaining("Session has expired");
+    }
+
+    @Test
+    void shouldParseConversationsWithParticipantsAndMessages() {
+        String json = """
+                {
+                  "data": [{
+                    "id": "t_100",
+                    "updated_time": "2026-07-02T15:00:00+0000",
+                    "participants": {
+                      "data": [
+                        {"id": "u_99", "name": "Alice User", "email": "alice@example.com"},
+                        {"id": "123", "name": "My Page"}
+                      ]
+                    },
+                    "messages": {
+                      "data": [{
+                        "id": "m_1",
+                        "message": "Where is my delivery?",
+                        "created_time": "2026-07-02T14:55:00+0000",
+                        "from": {"id": "u_99", "name": "Alice User"},
+                        "to": {"data": [{"id": "123", "name": "My Page"}]}
+                      }]
+                    }
+                  }],
+                  "paging": {"next": "https://graph.facebook.com/v26.0/123/conversations?after=cursor"}
+                }
+                """;
+
+        FacebookClient.ConversationPage page = new FacebookClient(config()).parseConversationsPage(json);
+        assertThat(page.conversations()).hasSize(1);
+        FacebookConversation conv = page.conversations().get(0);
+        assertThat(conv.id()).isEqualTo("t_100");
+        assertThat(conv.participants()).hasSize(2);
+        assertThat(conv.participants().get(0).name()).isEqualTo("Alice User");
+        assertThat(conv.messages()).hasSize(1);
+        assertThat(conv.messages().get(0).message()).isEqualTo("Where is my delivery?");
+        assertThat(conv.messages().get(0).from().id()).isEqualTo("u_99");
+        assertThat(conv.messages().get(0).to()).hasSize(1);
+        assertThat(conv.messages().get(0).to().get(0).id()).isEqualTo("123");
+        assertThat(page.nextUrl()).contains("after=cursor");
+    }
+
+    @Test
+    void shouldHandleMissingMessagingPermissionsGracefully() {
+        String permissionError = """
+                {
+                  "error": {
+                    "message": "(#10) To read conversations, user must grant pages_messaging permission.",
+                    "type": "OAuthException",
+                    "code": 10
+                  }
+                }
+                """;
+        FacebookClient client = new FacebookClient(config(), request -> new FakeResponse(400, permissionError));
+        List<FacebookConversation> conversations = client.fetchPageConversations();
+        assertThat(conversations).isEmpty();
     }
 
     private AppConfig config() {
