@@ -10,7 +10,9 @@ import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
 import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
+import com.fbscraper.model.FacebookReaction;
 import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.FacebookUser;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.ReactionSummary;
 
@@ -132,21 +134,18 @@ public class FacebookClient {
                     JsonNode commentData = postNode.path("comments").path("data");
                     if (commentData.isArray()) {
                         for (JsonNode commentNode : commentData) {
-                            comments.add(new FacebookComment(
-                                    commentNode.path("id").asText(""),
-                                    commentNode.path("message").asText(""),
-                                    parseInstant(commentNode.path("created_time").asText("")),
-                                    parseReactions(commentNode)
-                            ));
+                            comments.add(parseComment(commentNode));
                         }
                     }
+                    List<FacebookReaction> userReactions = parseUserReactions(postNode.path("reactions").path("data"));
 
                     posts.add(new FacebookPost(
                             postNode.path("id").asText(""),
                             postNode.path("message").asText(""),
                             parseInstant(postNode.path("created_time").asText("")),
                             comments,
-                            parseReactions(postNode)
+                            parseReactions(postNode),
+                            userReactions
                     ));
                 }
             }
@@ -156,13 +155,67 @@ public class FacebookClient {
         }
     }
 
+    private FacebookComment parseComment(JsonNode commentNode) {
+        String id = commentNode.path("id").asText("");
+        String message = commentNode.path("message").asText("");
+        Instant createdTime = parseInstant(commentNode.path("created_time").asText(""));
+        ReactionSummary reactions = parseReactions(commentNode);
+        FacebookUser from = parseUser(commentNode.path("from"));
+        List<FacebookReaction> userReactions = parseUserReactions(commentNode.path("reactions").path("data"));
+
+        List<FacebookComment> replies = new ArrayList<>();
+        JsonNode replyData = commentNode.path("comments").path("data");
+        if (replyData.isArray()) {
+            for (JsonNode replyNode : replyData) {
+                replies.add(parseComment(replyNode));
+            }
+        }
+
+        return new FacebookComment(id, message, createdTime, reactions, from, replies, userReactions);
+    }
+
+    private FacebookUser parseUser(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return FacebookUser.ANONYMOUS;
+        }
+        String id = node.path("id").asText("");
+        String name = node.path("name").asText("");
+        return new FacebookUser(id, name);
+    }
+
+    private List<FacebookReaction> parseUserReactions(JsonNode data) {
+        List<FacebookReaction> list = new ArrayList<>();
+        if (data != null && data.isArray()) {
+            for (JsonNode node : data) {
+                String id = node.path("id").asText("");
+                String name = node.path("name").asText("");
+                String type = node.path("type").asText("LIKE");
+                list.add(new FacebookReaction(id, name, type));
+            }
+        }
+        return list;
+    }
+
 
     public String buildFeedUrl() {
-        String fields = String.format(
-                "id,message,created_time,permalink_url,%s,comments.limit(%d){id,message,created_time,%s}",
-                REACTION_FIELDS,
-                config.commentLimit(),
+        String nestedCommentsField = String.format(
+                "comments.limit(%d){id,message,created_time,from{id,name},reactions.limit(%d){id,name,type},%s}",
+                config.nestedCommentLimit(),
+                config.reactionLimit(),
                 REACTION_FIELDS
+        );
+        String topLevelCommentsField = String.format(
+                "comments.limit(%d){id,message,created_time,from{id,name},reactions.limit(%d){id,name,type},%s,%s}",
+                config.commentLimit(),
+                config.reactionLimit(),
+                REACTION_FIELDS,
+                nestedCommentsField
+        );
+        String fields = String.format(
+                "id,message,created_time,permalink_url,reactions.limit(%d){id,name,type},%s,%s",
+                config.reactionLimit(),
+                REACTION_FIELDS,
+                topLevelCommentsField
         );
         String url = String.format(
                 "https://graph.facebook.com/%s/%s/feed?fields=%s&limit=%d",
@@ -207,10 +260,12 @@ public class FacebookClient {
         }
 
         List<FacebookReview> allReviews = new ArrayList<>();
+        String fields = "created_time,recommendation_type,review_text,rating,has_review,reviewer{id,name}";
         String currentUrl = withAccessToken(String.format(
-                "https://graph.facebook.com/%s/%s/ratings?fields=created_time,recommendation_type,review_text,rating,has_review&limit=%d",
+                "https://graph.facebook.com/%s/%s/ratings?fields=%s&limit=%d",
                 config.apiVersion(),
                 config.pageId(),
+                URLEncoder.encode(fields, StandardCharsets.UTF_8),
                 config.feedLimit()
         ));
         int pageCount = 0;
@@ -251,6 +306,7 @@ public class FacebookClient {
             if (data.isArray()) {
                 for (JsonNode item : data) {
                     String reviewText = item.path("review_text").asText("");
+                    FacebookUser reviewer = parseUser(item.path("reviewer"));
                     reviews.add(new FacebookReview(
                             parseInstant(item.path("created_time").asText("")),
                             item.hasNonNull("recommendation_type")
@@ -258,7 +314,8 @@ public class FacebookClient {
                                     : null,
                             reviewText,
                             item.path("rating").asInt(0),
-                            item.path("has_review").asBoolean(!reviewText.isBlank())
+                            item.path("has_review").asBoolean(!reviewText.isBlank()),
+                            reviewer
                     ));
                 }
             }

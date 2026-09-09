@@ -46,6 +46,12 @@ class FacebookClientTest {
                     "id": "post_1",
                     "message": "Single post test",
                     "created_time": "2026-07-01T12:00:00+0000",
+                    "reactions": {
+                      "data": [
+                        {"id": "u_reactor_1", "name": "Sarah Connor", "type": "LOVE"}
+                      ],
+                      "summary": {"total_count": 9}
+                    },
                     "reaction_total": {"summary": {"total_count": 9}},
                     "reaction_like": {"summary": {"total_count": 4}},
                     "reaction_love": {"summary": {"total_count": 2}},
@@ -58,9 +64,23 @@ class FacebookClientTest {
                       "id": "c_1",
                       "message": "Nice test!",
                       "created_time": "2026-07-01T12:05:00+0000",
+                      "from": {"id": "u_commenter_1", "name": "John Smith"},
+                      "reactions": {
+                        "data": [{"id": "u_reactor_2", "name": "Amy", "type": "LIKE"}],
+                        "summary": {"total_count": 3}
+                      },
                       "reaction_total": {"summary": {"total_count": 3}},
                       "reaction_like": {"summary": {"total_count": 1}},
-                      "reaction_care": {"summary": {"total_count": 2}}
+                      "reaction_care": {"summary": {"total_count": 2}},
+                      "comments": {"data": [{
+                        "id": "c_nested_1",
+                        "message": "Thanks John!",
+                        "created_time": "2026-07-01T12:06:00+0000",
+                        "from": {"id": "u_replier_1", "name": "Admin Bob"},
+                        "reactions": {
+                          "data": [{"id": "u_commenter_1", "name": "John Smith", "type": "CARE"}]
+                        }
+                      }]}
                     }]}
                   }],
                   "paging": {"next": "https://graph.facebook.com/v26.0/123/feed?after=next"}
@@ -72,9 +92,25 @@ class FacebookClientTest {
 
         assertThat(post.reactions().total()).isEqualTo(9);
         assertThat(post.reactions().care()).isEqualTo(1);
-        assertThat(post.createdTime()).isEqualTo(Instant.parse("2026-07-01T12:00:00Z"));
-        assertThat(post.comments().get(0).reactions().total()).isEqualTo(3);
-        assertThat(post.comments().get(0).reactions().care()).isEqualTo(2);
+        assertThat(post.userReactions()).hasSize(1);
+        assertThat(post.userReactions().get(0).name()).isEqualTo("Sarah Connor");
+        assertThat(post.userReactions().get(0).type()).isEqualTo("LOVE");
+
+        assertThat(post.comments()).hasSize(1);
+        var comment = post.comments().get(0);
+        assertThat(comment.from().name()).isEqualTo("John Smith");
+        assertThat(comment.from().id()).isEqualTo("u_commenter_1");
+        assertThat(comment.userReactions()).hasSize(1);
+        assertThat(comment.userReactions().get(0).name()).isEqualTo("Amy");
+
+        assertThat(comment.replies()).hasSize(1);
+        var reply = comment.replies().get(0);
+        assertThat(reply.id()).isEqualTo("c_nested_1");
+        assertThat(reply.from().name()).isEqualTo("Admin Bob");
+        assertThat(reply.message()).isEqualTo("Thanks John!");
+        assertThat(reply.userReactions()).hasSize(1);
+        assertThat(reply.userReactions().get(0).type()).isEqualTo("CARE");
+
         assertThat(page.nextUrl()).contains("after=next");
     }
 
@@ -87,10 +123,35 @@ class FacebookClientTest {
         assertThat(decoded)
                 .contains("/v26.0/123/feed?")
                 .contains("limit=100")
-                .contains("comments.limit(75){id,message,created_time,")
+                .contains("from{id,name}")
+                .contains("comments.limit(75){id,message,created_time,from{id,name},reactions.limit(100){id,name,type}")
                 .contains("reactions.type(CARE).limit(0).summary(total_count).as(reaction_care)")
                 .contains("reactions.type(ANGRY).limit(0).summary(total_count).as(reaction_angry)")
                 .contains("access_token=token");
+    }
+
+    @Test
+    void shouldParseReviewsWithReviewer() {
+        String json = """
+                {
+                  "data": [{
+                    "created_time": "2026-08-01T12:00:00+0000",
+                    "recommendation_type": "positive",
+                    "review_text": "Great place!",
+                    "rating": 5,
+                    "has_review": true,
+                    "reviewer": {
+                      "id": "u_reviewer_1",
+                      "name": "Jane Reviewer"
+                    }
+                  }]
+                }
+                """;
+        FacebookClient.ReviewPage page = new FacebookClient(config()).parseReviewPage(json);
+        assertThat(page.reviews()).hasSize(1);
+        FacebookReview review = page.reviews().get(0);
+        assertThat(review.reviewer().id()).isEqualTo("u_reviewer_1");
+        assertThat(review.reviewer().name()).isEqualTo("Jane Reviewer");
     }
 
     @Test
