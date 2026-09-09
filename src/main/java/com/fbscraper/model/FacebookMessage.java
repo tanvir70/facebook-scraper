@@ -7,18 +7,32 @@ public record FacebookMessage(
         String id,
         String message,
         Instant createdTime,
-        FacebookParticipant from,
-        List<FacebookParticipant> to,
-        List<FacebookAttachment> attachments
+        FacebookUser from,
+        List<FacebookUser> to,
+        List<FacebookAttachment> attachments,
+        boolean isFromPage,
+        SentimentScore score,
+        boolean flagged
 ) {
     public FacebookMessage(
             String id,
             String message,
             Instant createdTime,
-            FacebookParticipant from,
-            List<FacebookParticipant> to
+            FacebookUser from,
+            List<FacebookUser> to,
+            List<FacebookAttachment> attachments
     ) {
-        this(id, message, createdTime, from, to, List.of());
+        this(id, message, createdTime, from, to, attachments, false, null, false);
+    }
+
+    public FacebookMessage(
+            String id,
+            String message,
+            Instant createdTime,
+            FacebookUser from,
+            List<FacebookUser> to
+    ) {
+        this(id, message, createdTime, from, to, List.of(), false, null, false);
     }
 
     public FacebookMessage {

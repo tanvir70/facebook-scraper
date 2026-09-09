@@ -8,7 +8,6 @@ import com.fbscraper.model.FacebookAttachment;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReaction;
 import com.fbscraper.model.FacebookReview;
@@ -403,7 +402,7 @@ public class FacebookClient {
             JsonNode data = root.path("data");
             if (data.isArray()) {
                 for (JsonNode convNode : data) {
-                    List<FacebookParticipant> participants = parseParticipants(convNode.path("participants").path("data"));
+                    List<FacebookUser> participants = parseParticipants(convNode.path("participants").path("data"));
                     List<FacebookMessage> messages = parseMessages(convNode.path("messages").path("data"));
                     conversations.add(new FacebookConversation(
                             convNode.path("id").asText(""),
@@ -419,11 +418,11 @@ public class FacebookClient {
         }
     }
 
-    private List<FacebookParticipant> parseParticipants(JsonNode data) {
-        List<FacebookParticipant> list = new ArrayList<>();
+    private List<FacebookUser> parseParticipants(JsonNode data) {
+        List<FacebookUser> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                list.add(new FacebookParticipant(
+                list.add(new FacebookUser(
                         node.path("id").asText(""),
                         node.path("name").asText(""),
                         node.hasNonNull("email") ? node.path("email").asText("") : null
@@ -437,16 +436,16 @@ public class FacebookClient {
         List<FacebookMessage> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                FacebookParticipant from = null;
+                FacebookUser from = null;
                 if (node.hasNonNull("from")) {
                     JsonNode fromNode = node.get("from");
-                    from = new FacebookParticipant(
+                    from = new FacebookUser(
                             fromNode.path("id").asText(""),
                             fromNode.path("name").asText(""),
                             fromNode.hasNonNull("email") ? fromNode.path("email").asText("") : null
                     );
                 }
-                List<FacebookParticipant> to = parseParticipants(node.path("to").path("data"));
+                List<FacebookUser> to = parseParticipants(node.path("to").path("data"));
                 List<FacebookAttachment> attachments = parseAttachments(node.path("attachments").path("data"));
                 list.add(new FacebookMessage(
                         node.path("id").asText(""),

@@ -8,8 +8,9 @@ public record FacebookReview(
         String reviewText,
         int rating,
         boolean hasReview,
-        FacebookUser reviewer) {
-
+        FacebookUser reviewer,
+        SentimentScore score
+) {
     public FacebookReview {
         reviewer = reviewer == null ? FacebookUser.ANONYMOUS : reviewer;
     }
@@ -19,8 +20,20 @@ public record FacebookReview(
             String recommendationType,
             String reviewText,
             int rating,
-            boolean hasReview) {
-        this(createdTime, recommendationType, reviewText, rating, hasReview, FacebookUser.ANONYMOUS);
+            boolean hasReview,
+            FacebookUser reviewer
+    ) {
+        this(createdTime, recommendationType, reviewText, rating, hasReview, reviewer, null);
+    }
+
+    public FacebookReview(
+            Instant createdTime,
+            String recommendationType,
+            String reviewText,
+            int rating,
+            boolean hasReview
+    ) {
+        this(createdTime, recommendationType, reviewText, rating, hasReview, FacebookUser.ANONYMOUS, null);
     }
 
     public boolean isPositiveRecommendation() {
@@ -31,3 +44,4 @@ public record FacebookReview(
         return "negative".equalsIgnoreCase(recommendationType);
     }
 }
+

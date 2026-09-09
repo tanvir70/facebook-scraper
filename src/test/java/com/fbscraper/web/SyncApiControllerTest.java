@@ -94,7 +94,7 @@ class SyncApiControllerTest {
                 .andExpect(jsonPath("$.comments[0].replies[0].from.name").value("Replier Bob"))
                 .andExpect(jsonPath("$.comments[0].userReactions[0].name").value("Reactor Carl"))
                 .andExpect(jsonPath("$.postReactions[0].userReactions[0].name").value("Reactor Dan"))
-                .andExpect(jsonPath("$.reviews[0].review.reviewer.name").value("Reviewer Eve"));
+                .andExpect(jsonPath("$.reviews[0].reviewer.name").value("Reviewer Eve"));
 
         mockMvc.perform(get("/api/status"))
                 .andExpect(status().isOk())

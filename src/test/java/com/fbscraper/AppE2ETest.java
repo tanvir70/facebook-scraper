@@ -2,11 +2,9 @@ package com.fbscraper;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReaction;
 import com.fbscraper.model.FacebookReview;
@@ -58,8 +56,8 @@ class AppE2ETest {
                 List.of(postReactor)
         );
         FacebookReview review = new FacebookReview(now, "negative", "Very poor support", 2, true, reviewer);
-        FacebookParticipant customer = new FacebookParticipant("u1", "Bob Customer");
-        FacebookParticipant page = new FacebookParticipant("123", "Support Page");
+        FacebookUser customer = new FacebookUser("u1", "Bob Customer");
+        FacebookUser page = new FacebookUser("123", "Support Page");
         FacebookMessage customerMsg = new FacebookMessage("m1", "My order is terribly broken!", now, customer, List.of(page));
         FacebookMessage pageMsg = new FacebookMessage("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
         FacebookConversation conversation = new FacebookConversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
@@ -113,7 +111,7 @@ class AppE2ETest {
 
         assertThat(result.totalReviews()).isEqualTo(1);
         assertThat(result.negativeReviews()).isEqualTo(1);
-        assertThat(result.reviews().get(0).review().reviewer().name()).isEqualTo("Reviewer Eve");
+        assertThat(result.reviews().get(0).reviewer().name()).isEqualTo("Reviewer Eve");
         assertThat(result.pageRating().overallStarRating()).isEqualTo(3.8);
         assertThat(result.messageSummary().totalConversations()).isEqualTo(1);
         assertThat(result.messageSummary().totalMessages()).isEqualTo(2);

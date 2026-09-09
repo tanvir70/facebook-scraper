@@ -1,9 +1,8 @@
 package com.fbscraper.service;
 
-import com.fbscraper.model.AnalyzedConversation;
-import com.fbscraper.model.AnalyzedMessage;
+import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookParticipant;
+import com.fbscraper.model.FacebookUser;
 import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.ReactionSummary;
@@ -28,21 +27,19 @@ class DataExportServiceTest {
         DataExportService exportService = new DataExportService(tempDir);
         Instant now = Instant.parse("2026-09-08T12:00:00Z");
 
-        FacebookParticipant customer = new FacebookParticipant("u1", "Alice");
-        FacebookParticipant page = new FacebookParticipant("123", "Page");
+        FacebookUser customer = new FacebookUser("u1", "Alice");
+        FacebookUser page = new FacebookUser("123", "Page");
 
-        FacebookMessage msg1 = new FacebookMessage("m1", "I love this service!", now, customer, List.of(page));
         SentimentScore score1 = new SentimentScore(0.7, 0.4, 0.6, 0.0, SentimentLevel.POSITIVE);
-        AnalyzedMessage analyzedMsg1 = new AnalyzedMessage(msg1, false, score1, false);
+        FacebookMessage msg1 = new FacebookMessage("m1", "I love this service!", now, customer, List.of(page), List.of(), false, score1, false);
 
-        FacebookMessage msg2 = new FacebookMessage("m2", "Thank you Alice!", now.plusSeconds(30), page, List.of(customer));
-        AnalyzedMessage analyzedMsg2 = new AnalyzedMessage(msg2, true, null, false);
+        FacebookMessage msg2 = new FacebookMessage("m2", "Thank you Alice!", now.plusSeconds(30), page, List.of(customer), List.of(), true, null, false);
 
-        AnalyzedConversation conv = new AnalyzedConversation(
+        FacebookConversation conv = new FacebookConversation(
                 "t1",
                 now.plusSeconds(30),
                 List.of(customer, page),
-                List.of(analyzedMsg1, analyzedMsg2),
+                List.of(msg1, msg2),
                 SentimentLevel.POSITIVE,
                 1,
                 1
@@ -117,11 +114,9 @@ class DataExportServiceTest {
                 "p1", "Snippet", now, new ReactionSummary(1, 0, 0, 0, 0, 1, 0, 0), List.of(postReactor)
         );
 
-        com.fbscraper.model.FacebookReview fbReview = new com.fbscraper.model.FacebookReview(
-                now, "positive", "Loved it!", 5, true, reviewer
-        );
-        com.fbscraper.model.AnalyzedReview review = new com.fbscraper.model.AnalyzedReview(
-                fbReview, new SentimentScore(0.8, 0.6, 0.4, 0.0, SentimentLevel.POSITIVE)
+        com.fbscraper.model.FacebookReview review = new com.fbscraper.model.FacebookReview(
+                now, "positive", "Loved it!", 5, true, reviewer,
+                new SentimentScore(0.8, 0.6, 0.4, 0.0, SentimentLevel.POSITIVE)
         );
 
         SyncResult result = new SyncResult(
@@ -157,6 +152,6 @@ class DataExportServiceTest {
         assertThat(loaded.get().postReactions().get(0).userReactions().get(0).name()).isEqualTo("Reactor Ray");
 
         assertThat(loaded.get().reviews()).hasSize(1);
-        assertThat(loaded.get().reviews().get(0).review().reviewer().name()).isEqualTo("Reviewer Rita");
+        assertThat(loaded.get().reviews().get(0).reviewer().name()).isEqualTo("Reviewer Rita");
     }
 }

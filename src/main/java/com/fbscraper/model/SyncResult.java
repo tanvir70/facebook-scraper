@@ -23,9 +23,9 @@ public record SyncResult(
         PageRatingSummary pageRating,
         int totalReviews,
         int negativeReviews,
-        List<AnalyzedReview> reviews,
+        List<FacebookReview> reviews,
         MessageSentimentSummary messageSummary,
-        List<AnalyzedConversation> conversations
+        List<FacebookConversation> conversations
 ) {
     public SyncResult(
             Instant syncedAt,
@@ -47,7 +47,7 @@ public record SyncResult(
             PageRatingSummary pageRating,
             int totalReviews,
             int negativeReviews,
-            List<AnalyzedReview> reviews
+            List<FacebookReview> reviews
     ) {
         this(
                 syncedAt,

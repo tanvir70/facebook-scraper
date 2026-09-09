@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fbscraper.model.AnalyzedConversation;
-import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.CommentAnalysis;
+import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookReaction;
+import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.FacebookUser;
 import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
@@ -36,7 +36,7 @@ public class DataExportService {
     public record MessagesExport(
             Instant syncedAt,
             MessageSentimentSummary summary,
-            List<AnalyzedConversation> conversations
+            List<FacebookConversation> conversations
     ) {
         public MessagesExport {
             summary = summary == null ? MessageSentimentSummary.EMPTY : summary;
@@ -137,7 +137,7 @@ public class DataExportService {
 
         try {
             List<CommentAnalysis> comments = loadComments(commentsFile, negativeThreshold);
-            List<AnalyzedReview> reviews = loadReviews(reviewsFile);
+            List<FacebookReview> reviews = loadReviews(reviewsFile);
             MessagesExport messagesExport = loadMessages(messagesFile);
 
             if (comments.isEmpty() && reviews.isEmpty() && messagesExport.conversations().isEmpty()) {
@@ -337,19 +337,19 @@ public class DataExportService {
         }
     }
 
-    private List<AnalyzedReview> loadReviews(Path reviewsFile) {
+    private List<FacebookReview> loadReviews(Path reviewsFile) {
         if (!Files.exists(reviewsFile)) {
             return List.of();
         }
         try {
-            return objectMapper.readValue(reviewsFile.toFile(), new TypeReference<List<AnalyzedReview>>() {});
+            return objectMapper.readValue(reviewsFile.toFile(), new TypeReference<List<FacebookReview>>() {});
         } catch (Exception e) {
             System.err.println("[DataExportService] Failed to parse reviews.json: " + e.getMessage());
             return List.of();
         }
     }
 
-    private PageRatingSummary loadPageRating(Path ratingsFile, List<AnalyzedReview> reviews) {
+    private PageRatingSummary loadPageRating(Path ratingsFile, List<FacebookReview> reviews) {
         PageRatingSummary pageRating = PageRatingSummary.EMPTY;
         if (Files.exists(ratingsFile)) {
             try {
@@ -360,8 +360,8 @@ public class DataExportService {
         }
 
         if (pageRating.yesRecommendations() == 0 && pageRating.noRecommendations() == 0 && !reviews.isEmpty()) {
-            int yes = (int) reviews.stream().filter(r -> r.review() != null && r.review().isPositiveRecommendation()).count();
-            int no = (int) reviews.stream().filter(r -> r.review() != null && r.review().isNegativeRecommendation()).count();
+            int yes = (int) reviews.stream().filter(FacebookReview::isPositiveRecommendation).count();
+            int no = (int) reviews.stream().filter(FacebookReview::isNegativeRecommendation).count();
             int count = Math.max(pageRating.ratingCount(), reviews.size());
             double rating = pageRating.hasRatings() && pageRating.overallStarRating() > 0.0
                     ? pageRating.overallStarRating()

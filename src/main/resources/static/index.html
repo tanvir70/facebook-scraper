@@ -1352,8 +1352,8 @@
     }
 
     function createReviewRow(analyzedReview) {
-        const review = analyzedReview.review || {};
-        const score = analyzedReview.score || {};
+        const review = analyzedReview.review || analyzedReview || {};
+        const score = analyzedReview.score || review.score || {};
         const row = document.createElement('tr');
 
         const reviewerCell = document.createElement('td');
@@ -1446,7 +1446,7 @@
 
             if (conversationSearchTerm) {
                 const names = (conv.participants || []).map(p => p.name || '').join(' ').toLowerCase();
-                const text = (conv.messages || []).map(m => m.rawMessage?.message || '').join(' ').toLowerCase();
+                const text = (conv.messages || []).map(m => m.message || m.rawMessage?.message || '').join(' ').toLowerCase();
                 if (!names.includes(conversationSearchTerm) && !text.includes(conversationSearchTerm) && !conv.id.toLowerCase().includes(conversationSearchTerm)) {
                     return false;
                 }
@@ -1487,7 +1487,7 @@
         const snippetEl = document.createElement('div');
         snippetEl.className = 'thread-snippet';
         const lastMsg = conv.messages && conv.messages.length > 0 ? conv.messages[conv.messages.length - 1] : null;
-        snippetEl.textContent = lastMsg ? (lastMsg.rawMessage?.message || '[Empty message]') : '[No messages]';
+        snippetEl.textContent = lastMsg ? (lastMsg.message || lastMsg.rawMessage?.message || '[Empty message]') : '[No messages]';
 
         const timeEl = document.createElement('div');
         timeEl.className = 'time';
@@ -1533,11 +1533,12 @@
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
-        const hasText = msg.rawMessage?.message && msg.rawMessage.message.trim().length > 0;
-        const attachments = msg.rawMessage?.attachments || [];
+        const msgText = msg.message || msg.rawMessage?.message || '';
+        const hasText = msgText.trim().length > 0;
+        const attachments = msg.attachments || msg.rawMessage?.attachments || [];
         if (hasText) {
             const textEl = document.createElement('div');
-            textEl.textContent = msg.rawMessage.message;
+            textEl.textContent = msgText;
             bubble.appendChild(textEl);
         } else if (attachments.length === 0) {
             const emptyEl = document.createElement('div');
@@ -1593,11 +1594,12 @@
 
         const meta = document.createElement('div');
         meta.className = 'msg-meta';
+        const msgTime = msg.createdTime || msg.rawMessage?.createdTime;
 
         if (msg.isFromPage) {
-            meta.textContent = `Page · ${formatTime(msg.rawMessage?.createdTime)}`;
+            meta.textContent = `Page · ${formatTime(msgTime)}`;
         } else {
-            const senderName = msg.rawMessage?.from?.name || 'Customer';
+            const senderName = msg.from?.name || msg.rawMessage?.from?.name || 'Customer';
             const senderSpan = document.createElement('span');
             senderSpan.style.fontWeight = '600';
             senderSpan.textContent = senderName;
@@ -1613,7 +1615,7 @@
             }
 
             const timeSpan = document.createElement('span');
-            timeSpan.textContent = formatTime(msg.rawMessage?.createdTime);
+            timeSpan.textContent = formatTime(msgTime);
             meta.appendChild(timeSpan);
         }
 

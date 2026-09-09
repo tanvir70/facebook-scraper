@@ -3,7 +3,6 @@ package com.fbscraper.client;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.FacebookConversation;
 import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.PageRatingSummary;
