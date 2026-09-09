@@ -103,4 +103,51 @@ class ModelTest {
         assertThat(summary.criticalMessages()).isEqualTo(1);
         assertThat(summary.negativeRate()).isEqualTo(100.0);
     }
+
+    @Test
+    void shouldCreateAndVerifyFacebookUserAndReaction() {
+        FacebookUser user = new FacebookUser("u100", "Alice Wonderland");
+        assertThat(user.id()).isEqualTo("u100");
+        assertThat(user.name()).isEqualTo("Alice Wonderland");
+        assertThat(user.displayName()).isEqualTo("Alice Wonderland");
+
+        FacebookUser anon = new FacebookUser("", "");
+        assertThat(anon.displayName()).isEqualTo("Anonymous");
+
+        FacebookReaction reaction = new FacebookReaction("u100", "Alice Wonderland", "LOVE");
+        assertThat(reaction.type()).isEqualTo("LOVE");
+        assertThat(reaction.user().id()).isEqualTo("u100");
+    }
+
+    @Test
+    void shouldCreateCommentWithAuthorNestedRepliesAndReactors() {
+        Instant now = Instant.now();
+        FacebookUser author = new FacebookUser("u1", "John Doe");
+        FacebookUser replier = new FacebookUser("u2", "Jane Smith");
+        FacebookReaction commentReactor = new FacebookReaction("u3", "Bob", "LIKE");
+
+        FacebookComment reply = new FacebookComment("r1", "I agree!", now, ReactionSummary.empty(), replier, List.of(), List.of());
+        FacebookComment comment = new FacebookComment(
+                "c1", "Great post!", now, new ReactionSummary(1, 1, 0, 0, 0, 0, 0, 0),
+                author, List.of(reply), List.of(commentReactor)
+        );
+
+        assertThat(comment.from()).isEqualTo(author);
+        assertThat(comment.replies()).hasSize(1);
+        assertThat(comment.replies().get(0).from()).isEqualTo(replier);
+        assertThat(comment.userReactions()).hasSize(1);
+        assertThat(comment.userReactions().get(0).type()).isEqualTo("LIKE");
+    }
+
+    @Test
+    void shouldCreatePostAndReviewWithUserDetails() {
+        Instant now = Instant.now();
+        FacebookReaction postReactor = new FacebookReaction("u4", "Charlie", "CARE");
+        FacebookPost post = new FacebookPost("p1", "Hello", now, List.of(), ReactionSummary.empty(), List.of(postReactor));
+        assertThat(post.userReactions()).containsExactly(postReactor);
+
+        FacebookUser reviewer = new FacebookUser("u5", "David");
+        FacebookReview review = new FacebookReview(now, "positive", "Super friendly", 5, true, reviewer);
+        assertThat(review.reviewer()).isEqualTo(reviewer);
+    }
 }
