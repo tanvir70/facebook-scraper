@@ -31,9 +31,12 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Meta Graph API client for paginated Page posts, comments, reactions, ratings, reviews, and inbox messages.
  */
+@Component
 public class FacebookClient {
 
     public record FeedPage(List<FacebookPost> posts, String nextUrl) {

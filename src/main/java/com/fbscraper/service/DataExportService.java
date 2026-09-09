@@ -28,9 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Persists synchronization results into separate JSON files on disk and loads previous results.
  */
+@Service
 public class DataExportService {
 
     public record MessagesExport(

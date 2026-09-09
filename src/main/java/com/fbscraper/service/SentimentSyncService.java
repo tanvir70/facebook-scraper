@@ -26,10 +26,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Runs one complete synchronization: fetch Page comments and reactions, then analyze the comments.
  */
-public final class SentimentSyncService {
+@Service
+public class SentimentSyncService {
 
     private final FacebookClient facebookClient;
     private final VaderAnalyzer analyzer;

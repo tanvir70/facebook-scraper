@@ -12,6 +12,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Rule-based sentiment analysis engine based on VADER (Valence Aware Dictionary and sEntiment Reasoner).
  * <p>
@@ -24,6 +26,7 @@ import java.util.regex.Pattern;
  *   <li>Booster word incrementation and dampening ("extremely", "hardly", etc.).</li>
  * </ul>
  */
+@Component
 public class VaderAnalyzer {
 
     private static final double ALPHA = 15.0; // Normalization constant
@@ -37,6 +40,10 @@ public class VaderAnalyzer {
     private final Set<String> negationWords;
 
     private static final Pattern WORD_PATTERN = Pattern.compile("[\\p{L}\\p{N}']+|[\\S]");
+
+    public VaderAnalyzer() {
+        this(loadDefaultLexicon());
+    }
 
     /**
      * Constructs a {@code VaderAnalyzer} with a custom lexicon dictionary.
@@ -56,6 +63,10 @@ public class VaderAnalyzer {
      * @return an initialized {@link VaderAnalyzer} instance
      */
     public static VaderAnalyzer createDefault() {
+        return new VaderAnalyzer();
+    }
+
+    private static Map<String, Double> loadDefaultLexicon() {
         Map<String, Double> lexicon = new HashMap<>();
         try (InputStream in = VaderAnalyzer.class.getClassLoader().getResourceAsStream("vader_lexicon.txt")) {
             if (in == null) {
@@ -80,7 +91,7 @@ public class VaderAnalyzer {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load vader_lexicon.txt", e);
         }
-        return new VaderAnalyzer(lexicon);
+        return lexicon;
     }
 
     /**
