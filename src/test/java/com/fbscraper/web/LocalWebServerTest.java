@@ -32,11 +32,20 @@ class LocalWebServerTest {
     void shouldServeDashboardAndRunSync(@TempDir Path tempDir) throws Exception {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
+        com.fbscraper.model.FacebookUser commenter = new com.fbscraper.model.FacebookUser("u1", "Commenter Alice");
+        com.fbscraper.model.FacebookUser replier = new com.fbscraper.model.FacebookUser("u2", "Replier Bob");
+        com.fbscraper.model.FacebookReaction commentReactor = new com.fbscraper.model.FacebookReaction("u3", "Reactor Carl", "LIKE");
+        com.fbscraper.model.FacebookReaction postReactor = new com.fbscraper.model.FacebookReaction("u4", "Reactor Dan", "LOVE");
+        com.fbscraper.model.FacebookUser reviewer = new com.fbscraper.model.FacebookUser("u5", "Reviewer Eve");
+
+        FacebookComment reply = new FacebookComment("r1", "Reply text", now, ReactionSummary.empty(), replier, List.of(), List.of());
         FacebookComment comment = new FacebookComment(
-                "c1", "Awful support", now, new ReactionSummary(2, 1, 0, 0, 0, 0, 0, 1)
+                "c1", "Awful support", now, new ReactionSummary(2, 1, 0, 0, 0, 0, 0, 1),
+                commenter, List.of(reply), List.of(commentReactor)
         );
         FacebookPost post = new FacebookPost(
-                "p1", "Support", now, List.of(comment), new ReactionSummary(5, 2, 0, 1, 0, 0, 0, 2)
+                "p1", "Support", now, List.of(comment), new ReactionSummary(5, 2, 0, 1, 0, 0, 0, 2),
+                List.of(postReactor)
         );
         FacebookClient facebookClient = new FacebookClient(config, request -> {
             throw new AssertionError("Unexpected HTTP call");
@@ -44,7 +53,7 @@ class LocalWebServerTest {
             @Override public List<FacebookPost> fetchPageFeed() { return List.of(post); }
             @Override public PageRatingSummary fetchPageRatingSummary() { return new PageRatingSummary(4.2, 10); }
             @Override public List<FacebookReview> fetchPageReviews() {
-                return List.of(new FacebookReview(now, "positive", "Good", 5, true));
+                return List.of(new FacebookReview(now, "positive", "Good", 5, true, reviewer));
             }
             @Override public List<FacebookConversation> fetchPageConversations() {
                 return List.of();
@@ -82,7 +91,12 @@ class LocalWebServerTest {
                     "\"care\":1",
                     "\"angry\":2",
                     "\"messageSummary\"",
-                    "\"conversations\""
+                    "\"conversations\"",
+                    "\"Commenter Alice\"",
+                    "\"Replier Bob\"",
+                    "\"Reactor Carl\"",
+                    "\"Reactor Dan\"",
+                    "\"Reviewer Eve\""
             );
         }
     }

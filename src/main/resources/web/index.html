@@ -689,6 +689,88 @@
                 min-height: 320px;
             }
         }
+
+        /* User details, nested replies & reactor chips */
+        .comment-author {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: var(--ink);
+        }
+        .author-id {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: normal;
+        }
+        .nested-replies-wrap {
+            margin-top: 10px;
+            padding-left: 12px;
+            border-left: 2px solid #e2e8f0;
+        }
+        .nested-replies-toggle {
+            font-size: 11px;
+            font-weight: 700;
+            color: #4f46e5;
+            margin-bottom: 6px;
+        }
+        .nested-replies-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .nested-reply-card {
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        .reply-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .reply-text {
+            font-size: 12px;
+            color: var(--ink);
+            line-height: 1.45;
+        }
+        .reactor-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 5px;
+        }
+        .reactor-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            color: #334155;
+        }
+        .post-reactors-details {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #4f46e5;
+            cursor: pointer;
+        }
+        .post-reactors-details summary {
+            font-weight: 600;
+            outline: none;
+        }
+        .reviewer-cell {
+            font-size: 12px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -874,6 +956,7 @@
                 <table>
                     <thead>
                     <tr>
+                        <th>Reviewer</th>
                         <th>Recommendation</th>
                         <th>Review</th>
                         <th>Rating</th>
@@ -1062,11 +1145,57 @@
 
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function reactionEmoji(type) {
+        if (!type) return '👍';
+        switch (type.toUpperCase()) {
+            case 'LIKE': return '👍';
+            case 'LOVE': return '❤️';
+            case 'CARE': return '🥰';
+            case 'HAHA': return '😆';
+            case 'WOW': return '😮';
+            case 'SAD': return '😢';
+            case 'ANGRY': return '😡';
+            default: return '👍';
+        }
+    }
+
     function createReactionRow(post) {
         const row = document.createElement('tr');
         const postCell = document.createElement('td');
         postCell.className = 'reaction-post';
-        postCell.textContent = post.postSnippet || '[No post text]';
+        const titleDiv = document.createElement('div');
+        titleDiv.textContent = post.postSnippet || '[No post text]';
+        postCell.appendChild(titleDiv);
+
+        if (post.userReactions && post.userReactions.length > 0) {
+            const reactorsToggle = document.createElement('details');
+            reactorsToggle.className = 'post-reactors-details';
+            const summary = document.createElement('summary');
+            summary.textContent = `👥 View ${post.userReactions.length} reactors`;
+            reactorsToggle.appendChild(summary);
+
+            const list = document.createElement('div');
+            list.className = 'reactor-chips';
+            post.userReactions.forEach(r => {
+                const chip = document.createElement('span');
+                chip.className = 'reactor-chip';
+                chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
+                if (r.id) chip.title = `ID: ${r.id}`;
+                list.appendChild(chip);
+            });
+            reactorsToggle.appendChild(list);
+            postCell.appendChild(reactorsToggle);
+        }
         row.appendChild(postCell);
 
         ['total', 'like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
@@ -1109,6 +1238,15 @@
         sentimentCell.appendChild(badge);
 
         const messageCell = document.createElement('td');
+
+        if (comment.from && (comment.from.name || comment.from.id)) {
+            const authorDiv = document.createElement('div');
+            authorDiv.className = 'comment-author';
+            const authorName = comment.from.name || (comment.from.id ? `User ${comment.from.id}` : 'Anonymous');
+            authorDiv.innerHTML = `👤 <strong>${escapeHtml(authorName)}</strong>${comment.from.id ? ` <span class="author-id">(ID: ${escapeHtml(comment.from.id)})</span>` : ''}`;
+            messageCell.appendChild(authorDiv);
+        }
+
         const message = document.createElement('div');
         message.className = 'comment-text';
         message.textContent = comment.message || '[No comment text]';
@@ -1116,6 +1254,52 @@
         context.className = 'post-context';
         context.textContent = `Post: ${comment.postSnippet}`;
         messageCell.append(message, context);
+
+        if (comment.replies && comment.replies.length > 0) {
+            const repliesWrap = document.createElement('div');
+            repliesWrap.className = 'nested-replies-wrap';
+
+            const repliesHeader = document.createElement('div');
+            repliesHeader.className = 'nested-replies-toggle';
+            repliesHeader.textContent = `💬 ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}:`;
+            repliesWrap.appendChild(repliesHeader);
+
+            const repliesList = document.createElement('div');
+            repliesList.className = 'nested-replies-list';
+
+            comment.replies.forEach(reply => {
+                const replyCard = document.createElement('div');
+                replyCard.className = 'nested-reply-card';
+
+                const replyMeta = document.createElement('div');
+                replyMeta.className = 'reply-meta';
+                const replyAuthor = reply.from?.name || (reply.from?.id ? `User ${reply.from.id}` : 'Anonymous');
+                replyMeta.innerHTML = `<span>👤 <strong>${escapeHtml(replyAuthor)}</strong>${reply.from?.id ? ` <span class="author-id">(ID: ${escapeHtml(reply.from.id)})</span>` : ''}</span> <span class="badge badge-${levelClass(reply.level)}">${levelLabel(reply.level)}</span> <span class="time">${formatTime(reply.createdTime)}</span>`;
+
+                const replyText = document.createElement('div');
+                replyText.className = 'reply-text';
+                replyText.textContent = reply.message || '[No reply text]';
+
+                replyCard.append(replyMeta, replyText);
+
+                if (reply.userReactions && reply.userReactions.length > 0) {
+                    const replyReactors = document.createElement('div');
+                    replyReactors.className = 'reactor-chips';
+                    reply.userReactions.forEach(r => {
+                        const chip = document.createElement('span');
+                        chip.className = 'reactor-chip';
+                        chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
+                        if (r.id) chip.title = `ID: ${r.id}`;
+                        replyReactors.appendChild(chip);
+                    });
+                    replyCard.appendChild(replyReactors);
+                }
+
+                repliesList.appendChild(replyCard);
+            });
+            repliesWrap.appendChild(repliesList);
+            messageCell.appendChild(repliesWrap);
+        }
 
         const scoreCell = document.createElement('td');
         scoreCell.className = 'score';
@@ -1132,6 +1316,19 @@
             .map(type => `${typeLabel(type)} ${comment.reactions[type]}`);
         reactionBreakdown.textContent = reactionParts.length > 0 ? reactionParts.join(' · ') : 'No reactions';
         reactionCell.append(reactionTotal, reactionBreakdown);
+
+        if (comment.userReactions && comment.userReactions.length > 0) {
+            const commentReactors = document.createElement('div');
+            commentReactors.className = 'reactor-chips';
+            comment.userReactions.forEach(r => {
+                const chip = document.createElement('span');
+                chip.className = 'reactor-chip';
+                chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
+                if (r.id) chip.title = `ID: ${r.id}`;
+                commentReactors.appendChild(chip);
+            });
+            reactionCell.appendChild(commentReactors);
+        }
 
         const timeCell = document.createElement('td');
         timeCell.className = 'time';
@@ -1163,6 +1360,16 @@
         const score = analyzedReview.score || {};
         const row = document.createElement('tr');
 
+        const reviewerCell = document.createElement('td');
+        reviewerCell.className = 'reviewer-cell';
+        const reviewer = review.reviewer;
+        if (reviewer && (reviewer.name || reviewer.id)) {
+            const revName = reviewer.name || `User ${reviewer.id}`;
+            reviewerCell.innerHTML = `👤 <strong>${escapeHtml(revName)}</strong>${reviewer.id ? `<div class="author-id">ID: ${escapeHtml(reviewer.id)}</div>` : ''}`;
+        } else {
+            reviewerCell.textContent = 'Anonymous';
+        }
+
         const recommendationCell = document.createElement('td');
         if (review.recommendationType === 'positive') {
             recommendationCell.innerHTML = '<span class="badge badge-positive">👍 Yes</span>';
@@ -1189,7 +1396,7 @@
         timeCell.className = 'time';
         timeCell.textContent = formatTime(review.createdTime);
 
-        row.append(recommendationCell, reviewCell, ratingCell, sentimentCell, timeCell);
+        row.append(reviewerCell, recommendationCell, reviewCell, ratingCell, sentimentCell, timeCell);
         return row;
     }
 
