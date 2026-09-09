@@ -47,6 +47,7 @@ public class SentimentSyncService {
         this(config, facebookClient, analyzer, new DataExportService());
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SentimentSyncService(AppConfig config, FacebookClient facebookClient, VaderAnalyzer analyzer, DataExportService dataExportService) {
         this.config = config;
         this.facebookClient = facebookClient;

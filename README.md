@@ -38,52 +38,63 @@ Copy the Page ID and Page access token returned for the Page. Meta documents `CA
 
 > **Note:** If `pages_messaging` is missing on your token, the application will log a clear warning and proceed with fetching posts, comments, reactions, and reviews without failing.
 
-## Configuration
+### Configuration
 
 Copy the template:
 
 ```bash
-cp src/main/resources/config.properties.template config.properties
+cp src/main/resources/application.properties.template src/main/resources/application.properties
 ```
 
-Edit `config.properties`:
+Edit `application.properties`:
 
 ```properties
-fb.page.id=YOUR_FACEBOOK_PAGE_ID
-fb.access.token=YOUR_PAGE_ACCESS_TOKEN
-fb.api.version=v26.0
+server.port=8080
+
+fb.page-id=YOUR_FACEBOOK_PAGE_ID
+fb.access-token=YOUR_PAGE_ACCESS_TOKEN
+fb.api-version=v26.0
 
 # Posts returned by each feed request (max 100)
-fb.feed.limit=100
+fb.feed-limit=100
 
 # Top-level comments returned for each post (max 100)
-fb.comment.limit=100
+fb.comment-limit=100
 
 # Nested comment replies returned for each comment (max 100)
-fb.nested_comment.limit=100
+fb.nested-comment-limit=100
 
 # Interacting users returned for reactions on posts and comments (max 100)
-fb.reaction.limit=100
+fb.reaction-limit=100
 
 # Conversations per page (max 100)
-fb.conversation.limit=100
+fb.conversation-limit=100
 
 # Messages per conversation thread (max 100)
-fb.message.limit=100
+fb.message-limit=100
 
 # Feed/review/conversation pages to follow; use 0 for unlimited
-fb.max.pages=5
+fb.max-pages=5
 
-app.negative.threshold=-0.05
+# Sentiment threshold
+fb.negative-threshold=-0.05
 ```
 
-The application reads `config.properties` from the working directory, falling back to `src/main/resources/config.properties`.
+The application loads standard Spring Boot configuration properties and also supports environment variables or command-line overrides.
 
 ## Run
 
+Run directly from Gradle:
+
 ```bash
-./mvnw clean package
-java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar
+./gradlew bootRun
+```
+
+Or build the executable JAR and run:
+
+```bash
+./gradlew bootJar
+java -jar build/libs/facebook-scraper-1.0.0-SNAPSHOT.jar
 ```
 
 Open:
@@ -95,7 +106,9 @@ http://localhost:8080
 Use a different port when needed:
 
 ```bash
-java -jar target/facebook-scraper-1.0.0-SNAPSHOT.jar --port=9090
+./gradlew bootRun --args='--server.port=9090'
+# or with JAR:
+java -jar build/libs/facebook-scraper-1.0.0-SNAPSHOT.jar --server.port=9090
 ```
 
 Click **Sync now** to run the complete collection, sentiment analysis, and JSON export pipeline.
@@ -121,12 +134,12 @@ Every sync writes structured JSON files into the `output/` directory (created au
 
 ## Pagination
 
-The first request uses `fb.feed.limit`, `fb.comment.limit`, and `fb.conversation.limit`. When Meta returns `paging.next`, the collector follows it until there is no next cursor or `fb.max.pages` is reached.
+The first request uses `fb.feed-limit`, `fb.comment-limit`, and `fb.conversation-limit`. When Meta returns `paging.next`, the collector follows it until there is no next cursor or `fb.max-pages` is reached.
 
 ## Tests
 
 ```bash
-./mvnw test
+./gradlew test
 ```
 
 ## Main components
@@ -156,10 +169,10 @@ src/main/java/com/fbscraper/
 │   ├── DataExportService.java
 │   └── SentimentSyncService.java
 ├── report/HtmlDashboardGenerator.java
-└── web/LocalWebServer.java
+└── web/SyncApiController.java
 
 src/main/resources/
-├── config.properties.template
+├── application.properties.template
 ├── vader_lexicon.txt
-└── web/index.html
+└── static/index.html
 ```

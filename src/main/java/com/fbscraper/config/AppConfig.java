@@ -45,6 +45,10 @@ public record AppConfig(
     public static final int DEFAULT_MAX_PAGES = 5;
     public static final double DEFAULT_NEGATIVE_THRESHOLD = -0.05;
 
+    @org.springframework.boot.context.properties.bind.ConstructorBinding
+    public AppConfig {
+    }
+
     public AppConfig(
             String pageId,
             String accessToken,

@@ -69,6 +69,7 @@ public class FacebookClient {
     private final HttpSender httpSender;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public FacebookClient(AppConfig config) {
         this(config, HttpClient.newHttpClient());
     }
