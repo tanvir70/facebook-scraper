@@ -168,7 +168,6 @@ src/main/java/com/fbscraper/
 ├── service/
 │   ├── DataExportService.java
 │   └── SentimentSyncService.java
-├── report/HtmlDashboardGenerator.java
 └── web/SyncApiController.java
 
 src/main/resources/

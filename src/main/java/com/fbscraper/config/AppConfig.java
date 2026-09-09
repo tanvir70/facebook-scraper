@@ -61,20 +61,6 @@ public record AppConfig(
         this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold);
     }
 
-    public AppConfig(
-            String pageId,
-            String accessToken,
-            String apiVersion,
-            int feedLimit,
-            int commentLimit,
-            int conversationLimit,
-            int messageLimit,
-            int maxPages,
-            double negativeThreshold
-    ) {
-        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold);
-    }
-
     public static AppConfig fromProperties(Properties props) {
         String pageId = props.getProperty("fb.page.id", props.getProperty("fb.page-id", "")).trim();
         String accessToken = props.getProperty("fb.access.token", props.getProperty("fb.access-token", "")).trim();
@@ -94,21 +80,6 @@ public record AppConfig(
         double negativeThreshold = parseDoubleOrDefault(props.getProperty("app.negative.threshold", props.getProperty("fb.negative-threshold")), DEFAULT_NEGATIVE_THRESHOLD);
 
         return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, reactionLimit, nestedCommentLimit, maxPages, negativeThreshold);
-    }
-
-    public static AppConfig load() {
-        java.nio.file.Path rootConfig = java.nio.file.Path.of("application.properties");
-        java.nio.file.Path resourceConfig = java.nio.file.Path.of("src/main/resources/application.properties");
-        java.nio.file.Path configFile = java.nio.file.Files.exists(rootConfig) ? rootConfig : resourceConfig;
-        if (java.nio.file.Files.exists(configFile)) {
-            Properties props = new Properties();
-            try (var in = new java.io.FileInputStream(configFile.toFile())) {
-                props.load(in);
-                return fromProperties(props);
-            } catch (java.io.IOException ignored) {
-            }
-        }
-        return fromProperties(new Properties());
     }
 
     private static int parseIntOrDefault(String str, int defaultVal) {

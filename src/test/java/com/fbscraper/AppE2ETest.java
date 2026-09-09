@@ -2,7 +2,6 @@ package com.fbscraper;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.AnalyzedComment;
 import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookConversation;
@@ -14,16 +13,13 @@ import com.fbscraper.model.FacebookReview;
 import com.fbscraper.model.FacebookUser;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.SentimentScore;
 import com.fbscraper.model.SyncResult;
-import com.fbscraper.report.HtmlDashboardGenerator;
 import com.fbscraper.sentiment.VaderAnalyzer;
 import com.fbscraper.service.SentimentSyncService;
 import com.fbscraper.service.DataExportService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -128,28 +124,5 @@ class AppE2ETest {
         assertThat(result.conversations().get(0).messages().get(0).isFromPage()).isFalse();
         assertThat(result.conversations().get(0).messages().get(0).flagged()).isTrue();
         assertThat(result.conversations().get(0).messages().get(1).isFromPage()).isTrue();
-    }
-
-    @Test
-    void shouldGenerateTheLegacyHtmlReportWithReviews() throws Exception {
-        Instant now = Instant.now();
-        FacebookComment comment = new FacebookComment("c1", "Great service", now);
-        FacebookPost post = new FacebookPost("p1", "Update", now, List.of(comment));
-        SentimentScore score = VaderAnalyzer.createDefault().analyze(comment.message());
-        AnalyzedComment analyzedComment = new AnalyzedComment(comment, post.id(), post.message(), score);
-        FacebookReview review = new FacebookReview(now, "positive", "Recommended", 5, true);
-        AnalyzedReview analyzedReview = new AnalyzedReview(review, VaderAnalyzer.createDefault().analyze(review.reviewText()));
-        Path dashboard = Files.createTempFile("facebook-dashboard-", ".html");
-
-        new HtmlDashboardGenerator().generateReport(
-                List.of(post),
-                List.of(analyzedComment),
-                new PageRatingSummary(4.7, 20),
-                List.of(analyzedReview),
-                dashboard
-        );
-
-        assertThat(Files.readString(dashboard)).contains("Overall Page Rating", "Recommended");
-        Files.deleteIfExists(dashboard);
     }
 }
