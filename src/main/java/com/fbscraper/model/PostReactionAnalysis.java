@@ -3,9 +3,6 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * UI-friendly reaction totals and reactors for one Facebook Page post.
- */
 public record PostReactionAnalysis(
         String postId,
         String postSnippet,

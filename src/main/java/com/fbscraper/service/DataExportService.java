@@ -14,7 +14,7 @@ import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
 import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SyncResult;
 
 import java.io.IOException;
@@ -30,9 +30,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import org.springframework.stereotype.Service;
 
-/**
- * Persists synchronization results into separate JSON files on disk and loads previous results.
- */
 @Service
 public class DataExportService {
 
@@ -85,19 +82,15 @@ public class DataExportService {
                 Files.createDirectories(outputDir);
             }
 
-            // 1. Reviews
             Path reviewsFile = outputDir.resolve("reviews.json");
             objectMapper.writeValue(reviewsFile.toFile(), result.reviews());
 
-            // 2. Ratings
             Path ratingsFile = outputDir.resolve("ratings.json");
             objectMapper.writeValue(ratingsFile.toFile(), result.pageRating());
 
-            // 3. Comments
             Path commentsFile = outputDir.resolve("comments.json");
             objectMapper.writeValue(commentsFile.toFile(), result.comments());
 
-            // 4. Reactions on Posts
             Path postReactionsFile = outputDir.resolve("post_reactions.json");
             PostReactionsExport postReactionsExport = new PostReactionsExport(
                     result.syncedAt(),
@@ -107,7 +100,6 @@ public class DataExportService {
             );
             objectMapper.writeValue(postReactionsFile.toFile(), postReactionsExport);
 
-            // 5. Reactions on Comments
             Path commentReactionsFile = outputDir.resolve("comment_reactions.json");
             CommentReactionsExport commentReactionsExport = new CommentReactionsExport(
                     result.totalCommentReactions(),
@@ -115,7 +107,6 @@ public class DataExportService {
             );
             objectMapper.writeValue(commentReactionsFile.toFile(), commentReactionsExport);
 
-            // 6. Messages / Conversations
             if (result.conversations() != null) {
                 Path messagesFile = outputDir.resolve("messages.json");
                 MessagesExport messagesExport = new MessagesExport(
@@ -237,7 +228,7 @@ public class DataExportService {
     }
 
     private CommentAnalysis parseCommentAnalysisNode(JsonNode node, double negativeThreshold) {
-        // Support both new CommentAnalysis format and legacy AnalyzedComment format
+
         JsonNode commentNode = node.has("comment") ? node.get("comment") : node;
 
         String commentId = commentNode.path("id").asText(node.path("commentId").asText(""));
@@ -392,7 +383,6 @@ public class DataExportService {
             }
         }
 
-        // Fallback: derive posts from comments
         Map<String, PostReactionAnalysis> postMap = new LinkedHashMap<>();
         for (CommentAnalysis c : comments) {
             if (c.postId() != null && !c.postId().isBlank()) {
@@ -420,7 +410,6 @@ public class DataExportService {
             }
         }
 
-        // Fallback: sum reactions across comments
         int like = 0, love = 0, care = 0, haha = 0, wow = 0, sad = 0, angry = 0;
         for (CommentAnalysis c : comments) {
             if (c.reactions() != null) {

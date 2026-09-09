@@ -1,8 +1,5 @@
 package com.fbscraper.model;
 
-/**
- * Represents a Facebook user interacting with the Page (commenter, replier, reactor, reviewer).
- */
 public record FacebookUser(
         String id,
         String name

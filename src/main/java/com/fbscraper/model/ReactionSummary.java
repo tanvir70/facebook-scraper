@@ -1,8 +1,5 @@
 package com.fbscraper.model;
 
-/**
- * Aggregated reaction counts for a Facebook Page post.
- */
 public record ReactionSummary(
         int total,
         int like,

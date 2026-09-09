@@ -3,9 +3,6 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Complete result of one Facebook fetch-and-analyze operation.
- */
 public record SyncResult(
         Instant syncedAt,
         double negativeThreshold,

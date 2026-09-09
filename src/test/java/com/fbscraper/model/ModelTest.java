@@ -1,5 +1,6 @@
 package com.fbscraper.model;
 
+import com.fbscraper.enums.SentimentLevel;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

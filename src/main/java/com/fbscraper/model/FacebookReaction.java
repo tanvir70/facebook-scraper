@@ -1,8 +1,5 @@
 package com.fbscraper.model;
 
-/**
- * Represents an individual user reaction on a post or comment.
- */
 public record FacebookReaction(
         String id,
         String name,

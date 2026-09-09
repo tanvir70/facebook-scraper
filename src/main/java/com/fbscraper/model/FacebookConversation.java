@@ -3,9 +3,6 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Represents a conversation thread between users and the Page.
- */
 public record FacebookConversation(
         String id,
         Instant updatedTime,

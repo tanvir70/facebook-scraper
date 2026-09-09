@@ -1,8 +1,5 @@
 package com.fbscraper.model;
 
-/**
- * Aggregated metrics across all Page Messenger conversations.
- */
 public record MessageSentimentSummary(
         int totalConversations,
         int totalMessages,

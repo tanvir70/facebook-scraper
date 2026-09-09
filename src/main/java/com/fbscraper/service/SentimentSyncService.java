@@ -15,7 +15,7 @@ import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
 import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
 import com.fbscraper.model.SyncResult;
 import com.fbscraper.sentiment.VaderAnalyzer;
@@ -28,9 +28,6 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
-/**
- * Runs one complete synchronization: fetch Page comments and reactions, then analyze the comments.
- */
 @Service
 public class SentimentSyncService {
 

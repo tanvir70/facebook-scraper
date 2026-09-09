@@ -3,16 +3,6 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Represents a Facebook Page post.
- *
- * @param id            the unique identifier of the post
- * @param message       the text content of the post
- * @param createdTime   the creation timestamp
- * @param comments      the list of comments associated with this post (defensively copied)
- * @param reactions     aggregated reaction counts for this post
- * @param userReactions list of users who reacted to this post
- */
 public record FacebookPost(
         String id,
         String message,

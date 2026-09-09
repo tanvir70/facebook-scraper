@@ -1,6 +1,6 @@
 package com.fbscraper.sentiment;
 
-import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
 
 import java.io.BufferedReader;
@@ -14,26 +14,14 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
-/**
- * Rule-based sentiment analysis engine based on VADER (Valence Aware Dictionary and sEntiment Reasoner).
- * <p>
- * Specifically tailored for social media sentiment, handling:
- * <ul>
- *   <li>Lexicon valence scoring (from -4.0 to +4.0).</li>
- *   <li>ALL CAPS intensity modification.</li>
- *   <li>Punctuation amplification (e.g. exclamation marks "!").</li>
- *   <li>Negation detection within a 3-token lookbehind window ("not", "never", etc.).</li>
- *   <li>Booster word incrementation and dampening ("extremely", "hardly", etc.).</li>
- * </ul>
- */
 @Component
 public class VaderAnalyzer {
 
-    private static final double ALPHA = 15.0; // Normalization constant
-    private static final double C_INCR = 0.733; // All-caps boost
-    private static final double B_INCR = 0.293; // Booster increment
-    private static final double B_DECR = -0.293; // Booster decrement
-    private static final double NEG_SCALAR = -0.74; // Standard VADER negation multiplier
+    private static final double ALPHA = 15.0;
+    private static final double C_INCR = 0.733;
+    private static final double B_INCR = 0.293;
+    private static final double B_DECR = -0.293;
+    private static final double NEG_SCALAR = -0.74;
 
     private final Map<String, Double> lexicon;
     private final Map<String, Double> boosterDict;
@@ -46,23 +34,12 @@ public class VaderAnalyzer {
         this(loadDefaultLexicon());
     }
 
-    /**
-     * Constructs a {@code VaderAnalyzer} with a custom lexicon dictionary.
-     *
-     * @param lexicon mapping of lowercased tokens to their valence scores
-     */
     public VaderAnalyzer(Map<String, Double> lexicon) {
         this.lexicon = Objects.requireNonNull(lexicon, "lexicon cannot be null");
         this.boosterDict = initBoosterDict();
         this.negationWords = initNegationWords();
     }
 
-    /**
-     * Factory method that initializes a {@code VaderAnalyzer} by reading {@code vader_lexicon.txt}
-     * from the application classpath.
-     *
-     * @return an initialized {@link VaderAnalyzer} instance
-     */
     public static VaderAnalyzer createDefault() {
         return new VaderAnalyzer();
     }
@@ -95,13 +72,6 @@ public class VaderAnalyzer {
         return lexicon;
     }
 
-    /**
-     * Analyzes the sentiment of a text string and computes its compound score,
-     * positive/neutral/negative proportions, and categorical sentiment level.
-     *
-     * @param text the input message to evaluate
-     * @return a {@link SentimentScore} representing the evaluated sentiment
-     */
     public SentimentScore analyze(String text) {
         if (text == null || text.trim().isEmpty()) {
             return new SentimentScore(0.0, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL);
@@ -123,7 +93,6 @@ public class VaderAnalyzer {
             if (lexicon.containsKey(lowerToken)) {
                 double valence = lexicon.get(lowerToken);
 
-                // Check for ALL CAPS emphasis on this specific word
                 if (isAllUpper(token) && textHasCaps) {
                     if (valence > 0) {
                         valence += C_INCR;
@@ -132,7 +101,6 @@ public class VaderAnalyzer {
                     }
                 }
 
-                // Check preceding words for boosters or negation
                 for (int distance = 1; distance <= 3 && (i - distance) >= 0; distance++) {
                     String prevToken = tokens.get(i - distance);
                     String prevLower = prevToken.toLowerCase(Locale.ROOT);
@@ -147,7 +115,7 @@ public class VaderAnalyzer {
                         if (isAllUpper(prevToken) && textHasCaps) {
                             boost += (boost > 0 ? C_INCR : -C_INCR);
                         }
-                        // Dampen distance effect
+
                         double factor = 1.0 - (distance * 0.1);
                         if (valence > 0) {
                             valence += (boost * factor);
@@ -161,9 +129,8 @@ public class VaderAnalyzer {
             }
         }
 
-        // Punctuation emphasis (exclamation marks)
         double punctEmph = countExclamations(text) * 0.292;
-        if (punctEmph > 0.96) punctEmph = 0.96; // Cap at 0.96 (standard VADER limit)
+        if (punctEmph > 0.96) punctEmph = 0.96;
 
         double sumValence = sentiments.stream().mapToDouble(Double::doubleValue).sum();
 
@@ -175,7 +142,6 @@ public class VaderAnalyzer {
 
         double compound = normalize(sumValence);
 
-        // Calculate positive, neutral, negative proportions
         double posSum = 0.0;
         double negSum = 0.0;
         int neuCount = 0;
@@ -285,7 +251,6 @@ public class VaderAnalyzer {
         map.put("utterly", B_INCR);
         map.put("very", B_INCR);
 
-        // Dampeners
         map.put("almost", B_DECR);
         map.put("barely", B_DECR);
         map.put("hardly", B_DECR);

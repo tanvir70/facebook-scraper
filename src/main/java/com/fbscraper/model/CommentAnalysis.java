@@ -1,11 +1,10 @@
 package com.fbscraper.model;
 
+import com.fbscraper.enums.SentimentLevel;
+
 import java.time.Instant;
 import java.util.List;
 
-/**
- * UI-friendly representation of a Facebook comment and its sentiment result.
- */
 public record CommentAnalysis(
         String commentId,
         String postId,

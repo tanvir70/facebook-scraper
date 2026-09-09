@@ -14,9 +14,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * REST controller exposing synchronization and status endpoints for the dashboard UI.
- */
 @RestController
 @RequestMapping("/api")
 public class SyncApiController {

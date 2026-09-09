@@ -1,11 +1,10 @@
 package com.fbscraper.model;
 
+import com.fbscraper.enums.SentimentLevel;
+
 import java.time.Instant;
 import java.util.List;
 
-/**
- * A conversation thread containing its analyzed message history and aggregated sentiment.
- */
 public record AnalyzedConversation(
         String id,
         Instant updatedTime,

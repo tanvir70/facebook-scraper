@@ -3,9 +3,6 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Represents a single direct message within a conversation thread.
- */
 public record FacebookMessage(
         String id,
         String message,

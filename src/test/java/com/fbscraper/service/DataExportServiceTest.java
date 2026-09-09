@@ -7,7 +7,7 @@ import com.fbscraper.model.FacebookParticipant;
 import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
 import com.fbscraper.model.SyncResult;
 import org.junit.jupiter.api.Test;

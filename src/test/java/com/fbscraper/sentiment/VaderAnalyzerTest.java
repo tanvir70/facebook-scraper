@@ -1,6 +1,6 @@
 package com.fbscraper.sentiment;
 
-import com.fbscraper.model.SentimentLevel;
+import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SentimentScore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,6 @@ class VaderAnalyzerTest {
         SentimentScore directBad = analyzer.analyze("The app is bad.");
         SentimentScore notBad = analyzer.analyze("The app is not bad.");
 
-        // "not bad" should have higher valence than "bad"
         assertThat(notBad.compound()).isGreaterThan(directBad.compound());
         assertThat(notBad.isNegative()).isFalse();
     }

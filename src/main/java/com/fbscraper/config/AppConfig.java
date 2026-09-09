@@ -5,22 +5,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.util.Properties;
 
-/**
- * Immutable application configuration record for the Facebook Scraper.
- * Bound from {@code application.properties} under the {@code fb} prefix.
- *
- * @param pageId              Facebook Page ID to scrape
- * @param accessToken         Facebook Page/User Access Token with required permissions
- * @param apiVersion          Facebook Graph API version (default "v26.0")
- * @param feedLimit           Number of posts to fetch per page (default 100, Meta max)
- * @param commentLimit        Number of comments to fetch per post (default 100, Meta max)
- * @param conversationLimit   Number of conversation threads to fetch per page (default 100, Meta max)
- * @param messageLimit        Number of nested messages to fetch per conversation thread (default 100, Meta max)
- * @param reactionLimit       Number of user reactions to fetch per post/comment (default 100, Meta max)
- * @param nestedCommentLimit  Number of nested replies to fetch per comment (default 100, Meta max)
- * @param maxPages            Maximum number of feed pages to paginate through (default 5; 0 for unlimited)
- * @param negativeThreshold   Compound score threshold below which comments are flagged as negative (default -0.05)
- */
 @ConfigurationProperties(prefix = "fb")
 public record AppConfig(
         String pageId,

@@ -33,9 +33,6 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-/**
- * Meta Graph API client for paginated Page posts, comments, reactions, ratings, reviews, and inbox messages.
- */
 @Component
 public class FacebookClient {
 
@@ -199,7 +196,6 @@ public class FacebookClient {
         }
         return list;
     }
-
 
     public String buildFeedUrl() {
         String nestedCommentsField = String.format(
@@ -592,7 +588,7 @@ public class FacebookClient {
             code = error.path("code").asInt(-1);
             subcode = error.path("error_subcode").asInt(-1);
         } catch (Exception ignored) {
-            // Fall back to the raw response below.
+
         }
 
         boolean authError = statusCode == 401
