@@ -6,16 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.model.CommentAnalysis;
-import com.fbscraper.model.FacebookConversation;
-import com.fbscraper.model.FacebookReaction;
-import com.fbscraper.model.FacebookReview;
-import com.fbscraper.model.FacebookUser;
+import com.fbscraper.model.Conversation;
 import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
+import com.fbscraper.model.Reaction;
 import com.fbscraper.model.ReactionSummary;
+import com.fbscraper.model.Review;
 import com.fbscraper.enums.SentimentLevel;
 import com.fbscraper.model.SyncResult;
+import com.fbscraper.model.User;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,7 +36,7 @@ public class DataExportService {
     public record MessagesExport(
             Instant syncedAt,
             MessageSentimentSummary summary,
-            List<FacebookConversation> conversations
+            List<Conversation> conversations
     ) {
         public MessagesExport {
             summary = summary == null ? MessageSentimentSummary.EMPTY : summary;
@@ -137,7 +137,7 @@ public class DataExportService {
 
         try {
             List<CommentAnalysis> comments = loadComments(commentsFile, negativeThreshold);
-            List<FacebookReview> reviews = loadReviews(reviewsFile);
+            List<Review> reviews = loadReviews(reviewsFile);
             MessagesExport messagesExport = loadMessages(messagesFile);
 
             if (comments.isEmpty() && reviews.isEmpty() && messagesExport.conversations().isEmpty()) {
@@ -265,14 +265,14 @@ public class DataExportService {
         }
 
         JsonNode fromNode = commentNode.has("from") ? commentNode.get("from") : node.get("from");
-        FacebookUser from = FacebookUser.ANONYMOUS;
+        User from = User.ANONYMOUS;
         if (fromNode != null && !fromNode.isNull() && !fromNode.isMissingNode()) {
             try {
-                from = objectMapper.treeToValue(fromNode, FacebookUser.class);
+                from = objectMapper.treeToValue(fromNode, User.class);
             } catch (Exception ignored) {}
         }
         if (from == null) {
-            from = FacebookUser.ANONYMOUS;
+            from = User.ANONYMOUS;
         }
 
         List<CommentAnalysis> replies = new ArrayList<>();
@@ -283,12 +283,12 @@ public class DataExportService {
             }
         }
 
-        List<FacebookReaction> userReactions = new ArrayList<>();
+        List<Reaction> userReactions = new ArrayList<>();
         JsonNode userReactionsNode = commentNode.has("userReactions") ? commentNode.get("userReactions") : node.get("userReactions");
         if (userReactionsNode != null && userReactionsNode.isArray()) {
             for (JsonNode rNode : userReactionsNode) {
                 try {
-                    FacebookReaction reaction = objectMapper.treeToValue(rNode, FacebookReaction.class);
+                    Reaction reaction = objectMapper.treeToValue(rNode, Reaction.class);
                     if (reaction != null) {
                         userReactions.add(reaction);
                     }
@@ -337,19 +337,19 @@ public class DataExportService {
         }
     }
 
-    private List<FacebookReview> loadReviews(Path reviewsFile) {
+    private List<Review> loadReviews(Path reviewsFile) {
         if (!Files.exists(reviewsFile)) {
             return List.of();
         }
         try {
-            return objectMapper.readValue(reviewsFile.toFile(), new TypeReference<List<FacebookReview>>() {});
+            return objectMapper.readValue(reviewsFile.toFile(), new TypeReference<List<Review>>() {});
         } catch (Exception e) {
             System.err.println("[DataExportService] Failed to parse reviews.json: " + e.getMessage());
             return List.of();
         }
     }
 
-    private PageRatingSummary loadPageRating(Path ratingsFile, List<FacebookReview> reviews) {
+    private PageRatingSummary loadPageRating(Path ratingsFile, List<Review> reviews) {
         PageRatingSummary pageRating = PageRatingSummary.EMPTY;
         if (Files.exists(ratingsFile)) {
             try {
@@ -360,8 +360,8 @@ public class DataExportService {
         }
 
         if (pageRating.yesRecommendations() == 0 && pageRating.noRecommendations() == 0 && !reviews.isEmpty()) {
-            int yes = (int) reviews.stream().filter(FacebookReview::isPositiveRecommendation).count();
-            int no = (int) reviews.stream().filter(FacebookReview::isNegativeRecommendation).count();
+            int yes = (int) reviews.stream().filter(Review::isPositiveRecommendation).count();
+            int no = (int) reviews.stream().filter(Review::isNegativeRecommendation).count();
             int count = Math.max(pageRating.ratingCount(), reviews.size());
             double rating = pageRating.hasRatings() && pageRating.overallStarRating() > 0.0
                     ? pageRating.overallStarRating()

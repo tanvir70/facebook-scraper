@@ -2,38 +2,38 @@ package com.fbscraper.model;
 
 import java.time.Instant;
 
-public record FacebookReview(
+public record Review(
         Instant createdTime,
         String recommendationType,
         String reviewText,
         int rating,
         boolean hasReview,
-        FacebookUser reviewer,
+        User reviewer,
         SentimentScore score
 ) {
-    public FacebookReview {
-        reviewer = reviewer == null ? FacebookUser.ANONYMOUS : reviewer;
+    public Review {
+        reviewer = reviewer == null ? User.ANONYMOUS : reviewer;
     }
 
-    public FacebookReview(
+    public Review(
             Instant createdTime,
             String recommendationType,
             String reviewText,
             int rating,
             boolean hasReview,
-            FacebookUser reviewer
+            User reviewer
     ) {
         this(createdTime, recommendationType, reviewText, rating, hasReview, reviewer, null);
     }
 
-    public FacebookReview(
+    public Review(
             Instant createdTime,
             String recommendationType,
             String reviewText,
             int rating,
             boolean hasReview
     ) {
-        this(createdTime, recommendationType, reviewText, rating, hasReview, FacebookUser.ANONYMOUS, null);
+        this(createdTime, recommendationType, reviewText, rating, hasReview, User.ANONYMOUS, null);
     }
 
     public boolean isPositiveRecommendation() {

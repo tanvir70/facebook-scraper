@@ -3,11 +3,11 @@ package com.fbscraper.service;
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
 import com.fbscraper.model.CommentAnalysis;
-import com.fbscraper.model.FacebookComment;
-import com.fbscraper.model.FacebookConversation;
-import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookPost;
-import com.fbscraper.model.FacebookReview;
+import com.fbscraper.model.Comment;
+import com.fbscraper.model.Conversation;
+import com.fbscraper.model.Message;
+import com.fbscraper.model.Post;
+import com.fbscraper.model.Review;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
 import com.fbscraper.model.ReactionSummary;
@@ -79,14 +79,14 @@ public class SentimentSyncService {
     }
 
     public SyncResult sync() {
-        List<FacebookPost> posts = facebookClient.fetchPageFeed();
+        List<Post> posts = facebookClient.fetchPageFeed();
         PageRatingSummary initialRating = facebookClient.fetchPageRatingSummary();
-        List<FacebookReview> fetchedReviews = facebookClient.fetchPageReviews();
-        List<FacebookConversation> fetchedConversations = facebookClient.fetchPageConversations();
+        List<Review> fetchedReviews = facebookClient.fetchPageReviews();
+        List<Conversation> fetchedConversations = facebookClient.fetchPageConversations();
         List<CommentAnalysis> comments = new ArrayList<>();
         List<PostReactionAnalysis> postReactions = new ArrayList<>();
-        List<FacebookReview> reviews = new ArrayList<>();
-        List<FacebookConversation> conversations = new ArrayList<>();
+        List<Review> reviews = new ArrayList<>();
+        List<Conversation> conversations = new ArrayList<>();
 
         int totalCustomerMessages = 0;
         int totalPageReplies = 0;
@@ -95,16 +95,16 @@ public class SentimentSyncService {
         int msgWarning = 0;
         int msgCritical = 0;
 
-        for (FacebookConversation conv : fetchedConversations) {
-            List<FacebookMessage> analyzedMessages = new ArrayList<>();
+        for (Conversation conv : fetchedConversations) {
+            List<Message> analyzedMessages = new ArrayList<>();
             int custCount = 0;
             int pageCount = 0;
             SentimentLevel worstLevel = null;
 
-            List<FacebookMessage> sortedMessages = new ArrayList<>(conv.messages());
-            sortedMessages.sort(Comparator.comparing(FacebookMessage::createdTime));
+            List<Message> sortedMessages = new ArrayList<>(conv.messages());
+            sortedMessages.sort(Comparator.comparing(Message::createdTime));
 
-            for (FacebookMessage msg : sortedMessages) {
+            for (Message msg : sortedMessages) {
                 boolean isFromPage = msg.from() != null
                         && config.pageId() != null
                         && !config.pageId().isBlank()
@@ -113,7 +113,7 @@ public class SentimentSyncService {
                 if (isFromPage) {
                     pageCount++;
                     totalPageReplies++;
-                    analyzedMessages.add(new FacebookMessage(
+                    analyzedMessages.add(new Message(
                             msg.id(),
                             msg.message(),
                             msg.createdTime(),
@@ -138,7 +138,7 @@ public class SentimentSyncService {
                     }
 
                     worstLevel = prioritizeSentiment(worstLevel, score.level());
-                    analyzedMessages.add(new FacebookMessage(
+                    analyzedMessages.add(new Message(
                             msg.id(),
                             msg.message(),
                             msg.createdTime(),
@@ -153,7 +153,7 @@ public class SentimentSyncService {
             }
 
             SentimentLevel threadSentiment = worstLevel != null ? worstLevel : SentimentLevel.NEUTRAL;
-            conversations.add(new FacebookConversation(
+            conversations.add(new Conversation(
                     conv.id(),
                     conv.updatedTime(),
                     conv.participants(),
@@ -164,7 +164,7 @@ public class SentimentSyncService {
             ));
         }
 
-        conversations.sort(Comparator.comparing(FacebookConversation::updatedTime).reversed());
+        conversations.sort(Comparator.comparing(Conversation::updatedTime).reversed());
 
         int totalMsgNegative = msgWarning + msgCritical;
         double messageNegativeRate = totalCustomerMessages == 0
@@ -183,7 +183,7 @@ public class SentimentSyncService {
                 messageNegativeRate
         );
 
-        for (FacebookPost post : posts) {
+        for (Post post : posts) {
             String snippet = createSnippet(post.message());
             postReactions.add(new PostReactionAnalysis(
                     post.id(),
@@ -193,13 +193,13 @@ public class SentimentSyncService {
                     post.userReactions()
             ));
 
-            for (FacebookComment comment : post.comments()) {
+            for (Comment comment : post.comments()) {
                 comments.add(analyzeComment(comment, post.id(), snippet));
             }
         }
 
-        for (FacebookReview review : fetchedReviews) {
-            reviews.add(new FacebookReview(
+        for (Review review : fetchedReviews) {
+            reviews.add(new Review(
                     review.createdTime(),
                     review.recommendationType(),
                     review.reviewText(),
@@ -212,7 +212,7 @@ public class SentimentSyncService {
 
         comments.sort(Comparator.comparing(CommentAnalysis::createdTime).reversed());
         postReactions.sort(Comparator.comparing(PostReactionAnalysis::createdTime).reversed());
-        reviews.sort(Comparator.comparing(FacebookReview::createdTime, Comparator.reverseOrder()));
+        reviews.sort(Comparator.comparing(Review::createdTime, Comparator.reverseOrder()));
 
         int positive = countByLevel(comments, SentimentLevel.POSITIVE);
         int neutral = countByLevel(comments, SentimentLevel.NEUTRAL);
@@ -228,10 +228,10 @@ public class SentimentSyncService {
         ReactionSummary reactionTotals = sumReactions(posts);
         ReactionSummary commentReactionTotals = sumCommentReactions(posts);
         int yesCount = (int) reviews.stream()
-                .filter(FacebookReview::isPositiveRecommendation)
+                .filter(Review::isPositiveRecommendation)
                 .count();
         int noCount = (int) reviews.stream()
-                .filter(FacebookReview::isNegativeRecommendation)
+                .filter(Review::isNegativeRecommendation)
                 .count();
         int totalReviews = reviews.size();
 
@@ -295,7 +295,7 @@ public class SentimentSyncService {
         return SentimentLevel.NEUTRAL;
     }
 
-    private SentimentScore analyzeReview(FacebookReview review) {
+    private SentimentScore analyzeReview(Review review) {
         String text = review.reviewText() == null ? "" : review.reviewText();
         if (!text.isBlank()) {
             return analyzer.analyze(text);
@@ -309,16 +309,16 @@ public class SentimentSyncService {
         return new SentimentScore(0.0, 0.0, 1.0, 0.0, SentimentLevel.NEUTRAL);
     }
 
-    private ReactionSummary sumReactions(List<FacebookPost> posts) {
-        return sumReactionSummaries(posts.stream().map(FacebookPost::reactions).toList());
+    private ReactionSummary sumReactions(List<Post> posts) {
+        return sumReactionSummaries(posts.stream().map(Post::reactions).toList());
     }
 
-    private ReactionSummary sumCommentReactions(List<FacebookPost> posts) {
+    private ReactionSummary sumCommentReactions(List<Post> posts) {
         List<ReactionSummary> summaries = new ArrayList<>();
-        for (FacebookPost post : posts) {
-            for (FacebookComment comment : post.comments()) {
+        for (Post post : posts) {
+            for (Comment comment : post.comments()) {
                 summaries.add(comment.reactions());
-                for (FacebookComment reply : comment.replies()) {
+                for (Comment reply : comment.replies()) {
                     summaries.add(reply.reactions());
                 }
             }
@@ -326,10 +326,10 @@ public class SentimentSyncService {
         return sumReactionSummaries(summaries);
     }
 
-    private CommentAnalysis analyzeComment(FacebookComment comment, String postId, String postSnippet) {
+    private CommentAnalysis analyzeComment(Comment comment, String postId, String postSnippet) {
         SentimentScore score = analyzer.analyze(comment.message());
         List<CommentAnalysis> replies = new ArrayList<>();
-        for (FacebookComment reply : comment.replies()) {
+        for (Comment reply : comment.replies()) {
             replies.add(analyzeComment(reply, postId, postSnippet));
         }
         return new CommentAnalysis(

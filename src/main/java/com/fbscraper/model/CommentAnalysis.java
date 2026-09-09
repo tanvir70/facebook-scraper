@@ -15,13 +15,13 @@ public record CommentAnalysis(
         SentimentLevel level,
         boolean flagged,
         ReactionSummary reactions,
-        FacebookUser from,
+        User from,
         List<CommentAnalysis> replies,
-        List<FacebookReaction> userReactions
+        List<Reaction> userReactions
 ) {
     public CommentAnalysis {
         reactions = reactions == null ? ReactionSummary.empty() : reactions;
-        from = from == null ? FacebookUser.ANONYMOUS : from;
+        from = from == null ? User.ANONYMOUS : from;
         replies = replies == null ? List.of() : List.copyOf(replies);
         userReactions = userReactions == null ? List.of() : List.copyOf(userReactions);
     }
@@ -37,6 +37,6 @@ public record CommentAnalysis(
             boolean flagged,
             ReactionSummary reactions
     ) {
-        this(commentId, postId, postSnippet, message, createdTime, compound, level, flagged, reactions, FacebookUser.ANONYMOUS, List.of(), List.of());
+        this(commentId, postId, postSnippet, message, createdTime, compound, level, flagged, reactions, User.ANONYMOUS, List.of(), List.of());
     }
 }

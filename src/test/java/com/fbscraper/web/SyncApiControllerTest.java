@@ -2,14 +2,14 @@ package com.fbscraper.web;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.FacebookComment;
-import com.fbscraper.model.FacebookConversation;
-import com.fbscraper.model.FacebookPost;
-import com.fbscraper.model.FacebookReaction;
-import com.fbscraper.model.FacebookReview;
-import com.fbscraper.model.FacebookUser;
+import com.fbscraper.model.Comment;
+import com.fbscraper.model.Conversation;
 import com.fbscraper.model.PageRatingSummary;
+import com.fbscraper.model.Post;
+import com.fbscraper.model.Reaction;
 import com.fbscraper.model.ReactionSummary;
+import com.fbscraper.model.Review;
+import com.fbscraper.model.User;
 import com.fbscraper.sentiment.VaderAnalyzer;
 import com.fbscraper.service.DataExportService;
 import com.fbscraper.service.SentimentSyncService;
@@ -37,18 +37,18 @@ class SyncApiControllerTest {
     void setUp(@TempDir Path tempDir) {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
-        FacebookUser commenter = new FacebookUser("u1", "Commenter Alice");
-        FacebookUser replier = new FacebookUser("u2", "Replier Bob");
-        FacebookReaction commentReactor = new FacebookReaction("u3", "Reactor Carl", "LIKE");
-        FacebookReaction postReactor = new FacebookReaction("u4", "Reactor Dan", "LOVE");
-        FacebookUser reviewer = new FacebookUser("u5", "Reviewer Eve");
+        User commenter = new User("u1", "Commenter Alice");
+        User replier = new User("u2", "Replier Bob");
+        Reaction commentReactor = new Reaction("u3", "Reactor Carl", "LIKE");
+        Reaction postReactor = new Reaction("u4", "Reactor Dan", "LOVE");
+        User reviewer = new User("u5", "Reviewer Eve");
 
-        FacebookComment reply = new FacebookComment("r1", "Reply text", now, ReactionSummary.empty(), replier, List.of(), List.of());
-        FacebookComment comment = new FacebookComment(
+        Comment reply = new Comment("r1", "Reply text", now, ReactionSummary.empty(), replier, List.of(), List.of());
+        Comment comment = new Comment(
                 "c1", "Awful support", now, new ReactionSummary(2, 1, 0, 0, 0, 0, 0, 1),
                 commenter, List.of(reply), List.of(commentReactor)
         );
-        FacebookPost post = new FacebookPost(
+        Post post = new Post(
                 "p1", "Support", now, List.of(comment), new ReactionSummary(5, 2, 0, 1, 0, 0, 0, 2),
                 List.of(postReactor)
         );
@@ -56,12 +56,12 @@ class SyncApiControllerTest {
         FacebookClient facebookClient = new FacebookClient(config, request -> {
             throw new AssertionError("Unexpected HTTP call");
         }) {
-            @Override public List<FacebookPost> fetchPageFeed() { return List.of(post); }
+            @Override public List<Post> fetchPageFeed() { return List.of(post); }
             @Override public PageRatingSummary fetchPageRatingSummary() { return new PageRatingSummary(4.2, 10); }
-            @Override public List<FacebookReview> fetchPageReviews() {
-                return List.of(new FacebookReview(now, "positive", "Good", 5, true, reviewer));
+            @Override public List<Review> fetchPageReviews() {
+                return List.of(new Review(now, "positive", "Good", 5, true, reviewer));
             }
-            @Override public List<FacebookConversation> fetchPageConversations() {
+            @Override public List<Conversation> fetchPageConversations() {
                 return List.of();
             }
         };
@@ -108,7 +108,7 @@ class SyncApiControllerTest {
         FacebookClient failingClient = new FacebookClient(config, request -> {
             throw new AssertionError("Unexpected call");
         }) {
-            @Override public List<FacebookPost> fetchPageFeed() {
+            @Override public List<Post> fetchPageFeed() {
                 throw new IllegalStateException("Facebook API timeout");
             }
         };

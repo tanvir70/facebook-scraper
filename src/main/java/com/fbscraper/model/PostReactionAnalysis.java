@@ -8,7 +8,7 @@ public record PostReactionAnalysis(
         String postSnippet,
         Instant createdTime,
         ReactionSummary reactions,
-        List<FacebookReaction> userReactions
+        List<Reaction> userReactions
 ) {
     public PostReactionAnalysis {
         reactions = reactions == null ? ReactionSummary.empty() : reactions;

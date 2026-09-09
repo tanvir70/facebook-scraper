@@ -1,6 +1,6 @@
 package com.fbscraper.model;
 
-public record FacebookAttachment(
+public record Attachment(
         String id,
         String mimeType,
         String name,

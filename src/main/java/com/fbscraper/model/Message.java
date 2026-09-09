@@ -3,39 +3,39 @@ package com.fbscraper.model;
 import java.time.Instant;
 import java.util.List;
 
-public record FacebookMessage(
+public record Message(
         String id,
         String message,
         Instant createdTime,
-        FacebookUser from,
-        List<FacebookUser> to,
-        List<FacebookAttachment> attachments,
+        User from,
+        List<User> to,
+        List<Attachment> attachments,
         boolean isFromPage,
         SentimentScore score,
         boolean flagged
 ) {
-    public FacebookMessage(
+    public Message(
             String id,
             String message,
             Instant createdTime,
-            FacebookUser from,
-            List<FacebookUser> to,
-            List<FacebookAttachment> attachments
+            User from,
+            List<User> to,
+            List<Attachment> attachments
     ) {
         this(id, message, createdTime, from, to, attachments, false, null, false);
     }
 
-    public FacebookMessage(
+    public Message(
             String id,
             String message,
             Instant createdTime,
-            FacebookUser from,
-            List<FacebookUser> to
+            User from,
+            List<User> to
     ) {
         this(id, message, createdTime, from, to, List.of(), false, null, false);
     }
 
-    public FacebookMessage {
+    public Message {
         message = message == null ? "" : message;
         createdTime = createdTime == null ? Instant.now() : createdTime;
         to = to == null ? List.of() : List.copyOf(to);

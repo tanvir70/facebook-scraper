@@ -1,18 +1,18 @@
 package com.fbscraper.model;
 
-public record FacebookUser(
+public record User(
         String id,
         String name,
         String email
 ) {
-    public static final FacebookUser ANONYMOUS = new FacebookUser("", "Anonymous", null);
+    public static final User ANONYMOUS = new User("", "Anonymous", null);
 
-    public FacebookUser {
+    public User {
         id = id == null ? "" : id;
         name = name == null ? "" : name;
     }
 
-    public FacebookUser(String id, String name) {
+    public User(String id, String name) {
         this(id, name, null);
     }
 

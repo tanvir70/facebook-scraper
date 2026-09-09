@@ -2,16 +2,16 @@ package com.fbscraper;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.FacebookComment;
-import com.fbscraper.model.FacebookConversation;
-import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookPost;
-import com.fbscraper.model.FacebookReaction;
-import com.fbscraper.model.FacebookReview;
-import com.fbscraper.model.FacebookUser;
+import com.fbscraper.model.Comment;
+import com.fbscraper.model.Conversation;
+import com.fbscraper.model.Message;
 import com.fbscraper.model.PageRatingSummary;
+import com.fbscraper.model.Post;
+import com.fbscraper.model.Reaction;
 import com.fbscraper.model.ReactionSummary;
+import com.fbscraper.model.Review;
 import com.fbscraper.model.SyncResult;
+import com.fbscraper.model.User;
 import com.fbscraper.sentiment.VaderAnalyzer;
 import com.fbscraper.service.SentimentSyncService;
 import com.fbscraper.service.DataExportService;
@@ -30,15 +30,15 @@ class AppE2ETest {
     void shouldRunTheDashboardSyncPipeline(@TempDir Path tempDir) {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
-        FacebookUser commenter = new FacebookUser("u10", "John Doe");
-        FacebookUser replier = new FacebookUser("u11", "Replier Jane");
-        FacebookReaction commentReactor = new FacebookReaction("u12", "Charlie", "LOVE");
-        FacebookReaction postReactor = new FacebookReaction("u13", "Dave", "LIKE");
-        FacebookUser reviewer = new FacebookUser("u14", "Reviewer Eve");
+        User commenter = new User("u10", "John Doe");
+        User replier = new User("u11", "Replier Jane");
+        Reaction commentReactor = new Reaction("u12", "Charlie", "LOVE");
+        Reaction postReactor = new Reaction("u13", "Dave", "LIKE");
+        User reviewer = new User("u14", "Reviewer Eve");
 
-        FacebookComment reply = new FacebookComment("r1", "I disagree, it was okay", now, ReactionSummary.empty(), replier, List.of(), List.of());
+        Comment reply = new Comment("r1", "I disagree, it was okay", now, ReactionSummary.empty(), replier, List.of(), List.of());
 
-        FacebookComment comment = new FacebookComment(
+        Comment comment = new Comment(
                 "c1",
                 "This service is horrible",
                 now,
@@ -47,7 +47,7 @@ class AppE2ETest {
                 List.of(reply),
                 List.of(commentReactor)
         );
-        FacebookPost post = new FacebookPost(
+        Post post = new Post(
                 "p1",
                 "Support update",
                 now,
@@ -55,18 +55,18 @@ class AppE2ETest {
                 new ReactionSummary(10, 4, 1, 1, 1, 0, 1, 2),
                 List.of(postReactor)
         );
-        FacebookReview review = new FacebookReview(now, "negative", "Very poor support", 2, true, reviewer);
-        FacebookUser customer = new FacebookUser("u1", "Bob Customer");
-        FacebookUser page = new FacebookUser("123", "Support Page");
-        FacebookMessage customerMsg = new FacebookMessage("m1", "My order is terribly broken!", now, customer, List.of(page));
-        FacebookMessage pageMsg = new FacebookMessage("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
-        FacebookConversation conversation = new FacebookConversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
+        Review review = new Review(now, "negative", "Very poor support", 2, true, reviewer);
+        User customer = new User("u1", "Bob Customer");
+        User page = new User("123", "Support Page");
+        Message customerMsg = new Message("m1", "My order is terribly broken!", now, customer, List.of(page));
+        Message pageMsg = new Message("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
+        Conversation conversation = new Conversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
 
         FacebookClient client = new FacebookClient(config, request -> {
             throw new AssertionError("The test client must not make HTTP calls");
         }) {
             @Override
-            public List<FacebookPost> fetchPageFeed() {
+            public List<Post> fetchPageFeed() {
                 return List.of(post);
             }
 
@@ -76,12 +76,12 @@ class AppE2ETest {
             }
 
             @Override
-            public List<FacebookReview> fetchPageReviews() {
+            public List<Review> fetchPageReviews() {
                 return List.of(review);
             }
 
             @Override
-            public List<FacebookConversation> fetchPageConversations() {
+            public List<Conversation> fetchPageConversations() {
                 return List.of(conversation);
             }
         };

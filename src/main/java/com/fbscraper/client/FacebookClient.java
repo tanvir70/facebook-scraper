@@ -4,16 +4,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.FacebookAttachment;
-import com.fbscraper.model.FacebookComment;
-import com.fbscraper.model.FacebookConversation;
-import com.fbscraper.model.FacebookMessage;
-import com.fbscraper.model.FacebookPost;
-import com.fbscraper.model.FacebookReaction;
-import com.fbscraper.model.FacebookReview;
-import com.fbscraper.model.FacebookUser;
+import com.fbscraper.model.Attachment;
+import com.fbscraper.model.Comment;
+import com.fbscraper.model.Conversation;
+import com.fbscraper.model.Message;
 import com.fbscraper.model.PageRatingSummary;
+import com.fbscraper.model.Post;
+import com.fbscraper.model.Reaction;
 import com.fbscraper.model.ReactionSummary;
+import com.fbscraper.model.Review;
+import com.fbscraper.model.User;
 
 import java.io.IOException;
 import java.net.URI;
@@ -35,13 +35,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class FacebookClient {
 
-    public record FeedPage(List<FacebookPost> posts, String nextUrl) {
+    public record FeedPage(List<Post> posts, String nextUrl) {
     }
 
-    public record ReviewPage(List<FacebookReview> reviews, String nextUrl) {
+    public record ReviewPage(List<Review> reviews, String nextUrl) {
     }
 
-    public record ConversationPage(List<FacebookConversation> conversations, String nextUrl) {
+    public record ConversationPage(List<Conversation> conversations, String nextUrl) {
     }
 
     @FunctionalInterface
@@ -80,10 +80,10 @@ public class FacebookClient {
         this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
-    public List<FacebookPost> fetchPageFeed() {
+    public List<Post> fetchPageFeed() {
         validateCredentials();
 
-        List<FacebookPost> allPosts = new ArrayList<>();
+        List<Post> allPosts = new ArrayList<>();
         String currentUrl = buildFeedUrl();
         int pageCount = 0;
 
@@ -123,23 +123,23 @@ public class FacebookClient {
     }
 
     public FeedPage parseFeedPage(String json) {
-        List<FacebookPost> posts = new ArrayList<>();
+        List<Post> posts = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode data = root.path("data");
             if (data.isArray()) {
                 for (JsonNode postNode : data) {
-                    List<FacebookComment> comments = new ArrayList<>();
+                    List<Comment> comments = new ArrayList<>();
                     JsonNode commentData = postNode.path("comments").path("data");
                     if (commentData.isArray()) {
                         for (JsonNode commentNode : commentData) {
                             comments.add(parseComment(commentNode));
                         }
                     }
-                    List<FacebookReaction> userReactions = parseUserReactions(postNode.path("reactions").path("data"));
+                    List<Reaction> userReactions = parseUserReactions(postNode.path("reactions").path("data"));
 
-                    posts.add(new FacebookPost(
+                    posts.add(new Post(
                             postNode.path("id").asText(""),
                             postNode.path("message").asText(""),
                             parseInstant(postNode.path("created_time").asText("")),
@@ -155,15 +155,15 @@ public class FacebookClient {
         }
     }
 
-    private FacebookComment parseComment(JsonNode commentNode) {
+    private Comment parseComment(JsonNode commentNode) {
         String id = commentNode.path("id").asText("");
         String message = commentNode.path("message").asText("");
         Instant createdTime = parseInstant(commentNode.path("created_time").asText(""));
         ReactionSummary reactions = parseReactions(commentNode);
-        FacebookUser from = parseUser(commentNode.path("from"));
-        List<FacebookReaction> userReactions = parseUserReactions(commentNode.path("reactions").path("data"));
+        User from = parseUser(commentNode.path("from"));
+        List<Reaction> userReactions = parseUserReactions(commentNode.path("reactions").path("data"));
 
-        List<FacebookComment> replies = new ArrayList<>();
+        List<Comment> replies = new ArrayList<>();
         JsonNode replyData = commentNode.path("comments").path("data");
         if (replyData.isArray()) {
             for (JsonNode replyNode : replyData) {
@@ -171,26 +171,26 @@ public class FacebookClient {
             }
         }
 
-        return new FacebookComment(id, message, createdTime, reactions, from, replies, userReactions);
+        return new Comment(id, message, createdTime, reactions, from, replies, userReactions);
     }
 
-    private FacebookUser parseUser(JsonNode node) {
+    private User parseUser(JsonNode node) {
         if (node == null || node.isMissingNode() || node.isNull()) {
-            return FacebookUser.ANONYMOUS;
+            return User.ANONYMOUS;
         }
         String id = node.path("id").asText("");
         String name = node.path("name").asText("");
-        return new FacebookUser(id, name);
+        return new User(id, name);
     }
 
-    private List<FacebookReaction> parseUserReactions(JsonNode data) {
-        List<FacebookReaction> list = new ArrayList<>();
+    private List<Reaction> parseUserReactions(JsonNode data) {
+        List<Reaction> list = new ArrayList<>();
         if (data != null && data.isArray()) {
             for (JsonNode node : data) {
                 String id = node.path("id").asText("");
                 String name = node.path("name").asText("");
                 String type = node.path("type").asText("LIKE");
-                list.add(new FacebookReaction(id, name, type));
+                list.add(new Reaction(id, name, type));
             }
         }
         return list;
@@ -253,12 +253,12 @@ public class FacebookClient {
         }
     }
 
-    public List<FacebookReview> fetchPageReviews() {
+    public List<Review> fetchPageReviews() {
         if (!credentialsPresent()) {
             return List.of();
         }
 
-        List<FacebookReview> allReviews = new ArrayList<>();
+        List<Review> allReviews = new ArrayList<>();
         String fields = "created_time,recommendation_type,review_text,rating,has_review,reviewer{id,name}";
         String currentUrl = withAccessToken(String.format(
                 "https://graph.facebook.com/%s/%s/ratings?fields=%s&limit=%d",
@@ -297,7 +297,7 @@ public class FacebookClient {
     }
 
     public ReviewPage parseReviewPage(String json) {
-        List<FacebookReview> reviews = new ArrayList<>();
+        List<Review> reviews = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
@@ -305,8 +305,8 @@ public class FacebookClient {
             if (data.isArray()) {
                 for (JsonNode item : data) {
                     String reviewText = item.path("review_text").asText("");
-                    FacebookUser reviewer = parseUser(item.path("reviewer"));
-                    reviews.add(new FacebookReview(
+                    User reviewer = parseUser(item.path("reviewer"));
+                    reviews.add(new Review(
                             parseInstant(item.path("created_time").asText("")),
                             item.hasNonNull("recommendation_type")
                                     ? item.path("recommendation_type").asText("")
@@ -324,12 +324,12 @@ public class FacebookClient {
         }
     }
 
-    public List<FacebookConversation> fetchPageConversations() {
+    public List<Conversation> fetchPageConversations() {
         if (!credentialsPresent()) {
             return List.of();
         }
 
-        List<FacebookConversation> allConversations = new ArrayList<>();
+        List<Conversation> allConversations = new ArrayList<>();
         String currentUrl = buildConversationsUrl();
         int pageCount = 0;
 
@@ -395,16 +395,16 @@ public class FacebookClient {
     }
 
     public ConversationPage parseConversationsPage(String json) {
-        List<FacebookConversation> conversations = new ArrayList<>();
+        List<Conversation> conversations = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode data = root.path("data");
             if (data.isArray()) {
                 for (JsonNode convNode : data) {
-                    List<FacebookUser> participants = parseParticipants(convNode.path("participants").path("data"));
-                    List<FacebookMessage> messages = parseMessages(convNode.path("messages").path("data"));
-                    conversations.add(new FacebookConversation(
+                    List<User> participants = parseParticipants(convNode.path("participants").path("data"));
+                    List<Message> messages = parseMessages(convNode.path("messages").path("data"));
+                    conversations.add(new Conversation(
                             convNode.path("id").asText(""),
                             parseInstant(convNode.path("updated_time").asText("")),
                             participants,
@@ -418,11 +418,11 @@ public class FacebookClient {
         }
     }
 
-    private List<FacebookUser> parseParticipants(JsonNode data) {
-        List<FacebookUser> list = new ArrayList<>();
+    private List<User> parseParticipants(JsonNode data) {
+        List<User> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                list.add(new FacebookUser(
+                list.add(new User(
                         node.path("id").asText(""),
                         node.path("name").asText(""),
                         node.hasNonNull("email") ? node.path("email").asText("") : null
@@ -432,22 +432,22 @@ public class FacebookClient {
         return list;
     }
 
-    private List<FacebookMessage> parseMessages(JsonNode data) {
-        List<FacebookMessage> list = new ArrayList<>();
+    private List<Message> parseMessages(JsonNode data) {
+        List<Message> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                FacebookUser from = null;
+                User from = null;
                 if (node.hasNonNull("from")) {
                     JsonNode fromNode = node.get("from");
-                    from = new FacebookUser(
+                    from = new User(
                             fromNode.path("id").asText(""),
                             fromNode.path("name").asText(""),
                             fromNode.hasNonNull("email") ? fromNode.path("email").asText("") : null
                     );
                 }
-                List<FacebookUser> to = parseParticipants(node.path("to").path("data"));
-                List<FacebookAttachment> attachments = parseAttachments(node.path("attachments").path("data"));
-                list.add(new FacebookMessage(
+                List<User> to = parseParticipants(node.path("to").path("data"));
+                List<Attachment> attachments = parseAttachments(node.path("attachments").path("data"));
+                list.add(new Message(
                         node.path("id").asText(""),
                         node.path("message").asText(""),
                         parseInstant(node.path("created_time").asText("")),
@@ -460,8 +460,8 @@ public class FacebookClient {
         return list;
     }
 
-    private List<FacebookAttachment> parseAttachments(JsonNode data) {
-        List<FacebookAttachment> list = new ArrayList<>();
+    private List<Attachment> parseAttachments(JsonNode data) {
+        List<Attachment> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
                 String id = node.path("id").asText("");
@@ -496,7 +496,7 @@ public class FacebookClient {
                     }
                 }
 
-                list.add(new FacebookAttachment(id, mimeType, name, size, url, previewUrl));
+                list.add(new Attachment(id, mimeType, name, size, url, previewUrl));
             }
         }
         return list;
