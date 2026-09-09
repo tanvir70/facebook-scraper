@@ -8,6 +8,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.model.AnalyzedConversation;
 import com.fbscraper.model.AnalyzedReview;
 import com.fbscraper.model.CommentAnalysis;
+import com.fbscraper.model.FacebookReaction;
+import com.fbscraper.model.FacebookUser;
 import com.fbscraper.model.MessageSentimentSummary;
 import com.fbscraper.model.PageRatingSummary;
 import com.fbscraper.model.PostReactionAnalysis;
@@ -221,49 +223,85 @@ public class DataExportService {
             }
             List<CommentAnalysis> result = new ArrayList<>();
             for (JsonNode node : root) {
-                // Support both new CommentAnalysis format and legacy AnalyzedComment format
-                JsonNode commentNode = node.has("comment") ? node.get("comment") : node;
-
-                String commentId = commentNode.path("id").asText(node.path("commentId").asText(""));
-                String message = commentNode.path("message").asText(node.path("message").asText(""));
-
-                JsonNode createdTimeNode = commentNode.has("createdTime") ? commentNode.get("createdTime") : node.get("createdTime");
-                Instant createdTime = parseInstant(createdTimeNode);
-
-                String postId = node.path("postId").asText("");
-                String postSnippet = node.path("postSnippet").asText("");
-
-                double compound = node.has("score")
-                        ? node.path("score").path("compound").asDouble(0.0)
-                        : node.path("compound").asDouble(0.0);
-
-                String levelStr = node.has("score")
-                        ? node.path("score").path("level").asText("")
-                        : node.path("level").asText("");
-                SentimentLevel level = parseSentimentLevel(levelStr, compound, negativeThreshold);
-
-                boolean flagged = node.has("flagged")
-                        ? node.path("flagged").asBoolean(compound <= negativeThreshold)
-                        : (compound <= negativeThreshold);
-
-                JsonNode reactionsNode = commentNode.has("reactions") ? commentNode.get("reactions") : node.get("reactions");
-                ReactionSummary reactions = ReactionSummary.empty();
-                if (reactionsNode != null && !reactionsNode.isNull() && !reactionsNode.isMissingNode()) {
-                    try {
-                        reactions = objectMapper.treeToValue(reactionsNode, ReactionSummary.class);
-                    } catch (Exception ignored) {}
-                }
-                if (reactions == null) {
-                    reactions = ReactionSummary.empty();
-                }
-
-                result.add(new CommentAnalysis(commentId, postId, postSnippet, message, createdTime, compound, level, flagged, reactions));
+                result.add(parseCommentAnalysisNode(node, negativeThreshold));
             }
             return result;
         } catch (Exception e) {
             System.err.println("[DataExportService] Failed to parse comments.json: " + e.getMessage());
             return List.of();
         }
+    }
+
+    private CommentAnalysis parseCommentAnalysisNode(JsonNode node, double negativeThreshold) {
+        // Support both new CommentAnalysis format and legacy AnalyzedComment format
+        JsonNode commentNode = node.has("comment") ? node.get("comment") : node;
+
+        String commentId = commentNode.path("id").asText(node.path("commentId").asText(""));
+        String message = commentNode.path("message").asText(node.path("message").asText(""));
+
+        JsonNode createdTimeNode = commentNode.has("createdTime") ? commentNode.get("createdTime") : node.get("createdTime");
+        Instant createdTime = parseInstant(createdTimeNode);
+
+        String postId = node.path("postId").asText("");
+        String postSnippet = node.path("postSnippet").asText("");
+
+        double compound = node.has("score")
+                ? node.path("score").path("compound").asDouble(0.0)
+                : node.path("compound").asDouble(0.0);
+
+        String levelStr = node.has("score")
+                ? node.path("score").path("level").asText("")
+                : node.path("level").asText("");
+        SentimentLevel level = parseSentimentLevel(levelStr, compound, negativeThreshold);
+
+        boolean flagged = node.has("flagged")
+                ? node.path("flagged").asBoolean(compound <= negativeThreshold)
+                : (compound <= negativeThreshold);
+
+        JsonNode reactionsNode = commentNode.has("reactions") ? commentNode.get("reactions") : node.get("reactions");
+        ReactionSummary reactions = ReactionSummary.empty();
+        if (reactionsNode != null && !reactionsNode.isNull() && !reactionsNode.isMissingNode()) {
+            try {
+                reactions = objectMapper.treeToValue(reactionsNode, ReactionSummary.class);
+            } catch (Exception ignored) {}
+        }
+        if (reactions == null) {
+            reactions = ReactionSummary.empty();
+        }
+
+        JsonNode fromNode = commentNode.has("from") ? commentNode.get("from") : node.get("from");
+        FacebookUser from = FacebookUser.ANONYMOUS;
+        if (fromNode != null && !fromNode.isNull() && !fromNode.isMissingNode()) {
+            try {
+                from = objectMapper.treeToValue(fromNode, FacebookUser.class);
+            } catch (Exception ignored) {}
+        }
+        if (from == null) {
+            from = FacebookUser.ANONYMOUS;
+        }
+
+        List<CommentAnalysis> replies = new ArrayList<>();
+        JsonNode repliesNode = commentNode.has("replies") ? commentNode.get("replies") : node.get("replies");
+        if (repliesNode != null && repliesNode.isArray()) {
+            for (JsonNode replyNode : repliesNode) {
+                replies.add(parseCommentAnalysisNode(replyNode, negativeThreshold));
+            }
+        }
+
+        List<FacebookReaction> userReactions = new ArrayList<>();
+        JsonNode userReactionsNode = commentNode.has("userReactions") ? commentNode.get("userReactions") : node.get("userReactions");
+        if (userReactionsNode != null && userReactionsNode.isArray()) {
+            for (JsonNode rNode : userReactionsNode) {
+                try {
+                    FacebookReaction reaction = objectMapper.treeToValue(rNode, FacebookReaction.class);
+                    if (reaction != null) {
+                        userReactions.add(reaction);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return new CommentAnalysis(commentId, postId, postSnippet, message, createdTime, compound, level, flagged, reactions, from, replies, userReactions);
     }
 
     private Instant parseInstant(JsonNode node) {

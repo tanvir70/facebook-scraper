@@ -92,4 +92,71 @@ class DataExportServiceTest {
         assertThat(loaded.get().conversations().get(0).messages().get(0).isFromPage()).isFalse();
         assertThat(loaded.get().conversations().get(0).messages().get(1).isFromPage()).isTrue();
     }
+
+    @Test
+    void shouldExportAndLoadCommentsReviewsAndPostReactionsWithUserDetails(@TempDir Path tempDir) {
+        DataExportService exportService = new DataExportService(tempDir);
+        Instant now = Instant.parse("2026-09-08T12:00:00Z");
+
+        com.fbscraper.model.FacebookUser commenter = new com.fbscraper.model.FacebookUser("u10", "Commenter Sam");
+        com.fbscraper.model.FacebookUser replier = new com.fbscraper.model.FacebookUser("u11", "Replier Sue");
+        com.fbscraper.model.FacebookReaction commentReactor = new com.fbscraper.model.FacebookReaction("u12", "Reactor Ron", "HAHA");
+        com.fbscraper.model.FacebookReaction postReactor = new com.fbscraper.model.FacebookReaction("u13", "Reactor Ray", "WOW");
+        com.fbscraper.model.FacebookUser reviewer = new com.fbscraper.model.FacebookUser("u14", "Reviewer Rita");
+
+        com.fbscraper.model.CommentAnalysis reply = new com.fbscraper.model.CommentAnalysis(
+                "r1", "p1", "Snippet", "Replying to Sam", now, 0.2, SentimentLevel.POSITIVE, false,
+                ReactionSummary.empty(), replier, List.of(), List.of()
+        );
+        com.fbscraper.model.CommentAnalysis comment = new com.fbscraper.model.CommentAnalysis(
+                "c1", "p1", "Snippet", "Great product", now, 0.6, SentimentLevel.POSITIVE, false,
+                new ReactionSummary(1, 0, 0, 0, 1, 0, 0, 0), commenter, List.of(reply), List.of(commentReactor)
+        );
+
+        com.fbscraper.model.PostReactionAnalysis postReaction = new com.fbscraper.model.PostReactionAnalysis(
+                "p1", "Snippet", now, new ReactionSummary(1, 0, 0, 0, 0, 1, 0, 0), List.of(postReactor)
+        );
+
+        com.fbscraper.model.FacebookReview fbReview = new com.fbscraper.model.FacebookReview(
+                now, "positive", "Loved it!", 5, true, reviewer
+        );
+        com.fbscraper.model.AnalyzedReview review = new com.fbscraper.model.AnalyzedReview(
+                fbReview, new SentimentScore(0.8, 0.6, 0.4, 0.0, SentimentLevel.POSITIVE)
+        );
+
+        SyncResult result = new SyncResult(
+                now, -0.05, 1, 1, 1, new ReactionSummary(1, 0, 0, 0, 0, 1, 0, 0),
+                1, new ReactionSummary(1, 0, 0, 0, 1, 0, 0, 0),
+                1, 0, 0, 0, 0, 0.0,
+                List.of(comment), List.of(postReaction), PageRatingSummary.EMPTY,
+                1, 0, List.of(review), MessageSentimentSummary.EMPTY, List.of()
+        );
+
+        exportService.export(result);
+
+        Path commentsFile = tempDir.resolve("comments.json");
+        Path postReactionsFile = tempDir.resolve("post_reactions.json");
+        Path reviewsFile = tempDir.resolve("reviews.json");
+
+        assertThat(Files.exists(commentsFile)).isTrue();
+        assertThat(Files.exists(postReactionsFile)).isTrue();
+        assertThat(Files.exists(reviewsFile)).isTrue();
+
+        Optional<SyncResult> loaded = exportService.loadLatest(-0.05);
+        assertThat(loaded).isPresent();
+        assertThat(loaded.get().comments()).hasSize(1);
+        var loadedComment = loaded.get().comments().get(0);
+        assertThat(loadedComment.from().name()).isEqualTo("Commenter Sam");
+        assertThat(loadedComment.userReactions()).hasSize(1);
+        assertThat(loadedComment.userReactions().get(0).type()).isEqualTo("HAHA");
+        assertThat(loadedComment.replies()).hasSize(1);
+        assertThat(loadedComment.replies().get(0).from().name()).isEqualTo("Replier Sue");
+
+        assertThat(loaded.get().postReactions()).hasSize(1);
+        assertThat(loaded.get().postReactions().get(0).userReactions()).hasSize(1);
+        assertThat(loaded.get().postReactions().get(0).userReactions().get(0).name()).isEqualTo("Reactor Ray");
+
+        assertThat(loaded.get().reviews()).hasSize(1);
+        assertThat(loaded.get().reviews().get(0).review().reviewer().name()).isEqualTo("Reviewer Rita");
+    }
 }
