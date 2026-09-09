@@ -29,7 +29,6 @@ public class VaderAnalyzer {
 
     private static final Pattern WORD_PATTERN = Pattern.compile("[\\p{L}\\p{N}']+|[\\S]");
 
-    @org.springframework.beans.factory.annotation.Autowired
     public VaderAnalyzer() {
         this(loadDefaultLexicon());
     }

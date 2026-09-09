@@ -59,7 +59,6 @@ public class DataExportService {
     private final Path outputDir;
     private final ObjectMapper objectMapper;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public DataExportService() {
         this(Path.of("output"));
     }
