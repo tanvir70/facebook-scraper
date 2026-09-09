@@ -22,6 +22,12 @@ fb.conversation.limit=100
 # Number of nested messages to fetch per conversation thread (max allowed by Meta is 100)
 fb.message.limit=100
 
+# Number of user reactions to fetch per post and comment (max allowed by Meta is 100)
+fb.reaction.limit=100
+
+# Number of nested replies to fetch per comment (max allowed by Meta is 100)
+fb.nested_comment.limit=100
+
 # Maximum number of pages to paginate through (default 5; set 0 for unlimited)
 fb.max.pages=5
 

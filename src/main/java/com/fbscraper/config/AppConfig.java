@@ -18,6 +18,8 @@ import java.util.Properties;
  * @param commentLimit      Number of comments to fetch per post (default 100, Meta max)
  * @param conversationLimit Number of conversation threads to fetch per page (default 100, Meta max)
  * @param messageLimit      Number of nested messages to fetch per conversation thread (default 100, Meta max)
+ * @param reactionLimit     Number of user reactions to fetch per post/comment (default 100, Meta max)
+ * @param nestedCommentLimit Number of nested replies to fetch per comment (default 100, Meta max)
  * @param maxPages          Maximum number of feed pages to paginate through (default 5; 0 for unlimited)
  * @param negativeThreshold Compound score threshold below which comments are flagged as negative (default -0.05)
  */
@@ -29,6 +31,8 @@ public record AppConfig(
         int commentLimit,
         int conversationLimit,
         int messageLimit,
+        int reactionLimit,
+        int nestedCommentLimit,
         int maxPages,
         double negativeThreshold
 ) {
@@ -37,6 +41,8 @@ public record AppConfig(
     public static final int DEFAULT_COMMENT_LIMIT = 100;
     public static final int DEFAULT_CONVERSATION_LIMIT = 100;
     public static final int DEFAULT_MESSAGE_LIMIT = 100;
+    public static final int DEFAULT_REACTION_LIMIT = 100;
+    public static final int DEFAULT_NESTED_COMMENT_LIMIT = 100;
     public static final int DEFAULT_MAX_PAGES = 5;
     public static final double DEFAULT_NEGATIVE_THRESHOLD = -0.05;
 
@@ -49,7 +55,21 @@ public record AppConfig(
             int maxPages,
             double negativeThreshold
     ) {
-        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, maxPages, negativeThreshold);
+        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold);
+    }
+
+    public AppConfig(
+            String pageId,
+            String accessToken,
+            String apiVersion,
+            int feedLimit,
+            int commentLimit,
+            int conversationLimit,
+            int messageLimit,
+            int maxPages,
+            double negativeThreshold
+    ) {
+        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold);
     }
 
     /**
@@ -114,10 +134,12 @@ public record AppConfig(
         int commentLimit = parseIntOrDefault(props.getProperty("fb.comment.limit"), DEFAULT_COMMENT_LIMIT);
         int conversationLimit = parseIntOrDefault(props.getProperty("fb.conversation.limit"), DEFAULT_CONVERSATION_LIMIT);
         int messageLimit = parseIntOrDefault(props.getProperty("fb.message.limit"), DEFAULT_MESSAGE_LIMIT);
+        int reactionLimit = parseIntOrDefault(props.getProperty("fb.reaction.limit"), DEFAULT_REACTION_LIMIT);
+        int nestedCommentLimit = parseIntOrDefault(props.getProperty("fb.nested_comment.limit"), DEFAULT_NESTED_COMMENT_LIMIT);
         int maxPages = parseIntOrDefault(props.getProperty("fb.max.pages"), DEFAULT_MAX_PAGES);
         double negativeThreshold = parseDoubleOrDefault(props.getProperty("app.negative.threshold"), DEFAULT_NEGATIVE_THRESHOLD);
 
-        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, maxPages, negativeThreshold);
+        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, reactionLimit, nestedCommentLimit, maxPages, negativeThreshold);
     }
 
     private static int parseIntOrDefault(String str, int defaultVal) {
