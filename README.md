@@ -5,14 +5,15 @@ A Java 21 Facebook Page monitoring application. It fetches posts, comments, reac
 ## Features
 
 - Cursor pagination for Page posts and reviews.
-- Configurable posts per page, comments per post, and maximum pages.
-- Total and per-type reactions for posts and comments: `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY`.
-- Page rating and customer review collection.
+- Configurable posts per page, comments per post, nested comments limit, reaction limit, and maximum pages.
+- Detailed commenter user details (`id`, `name`) and full nested comment reply threads with recursive sentiment analysis.
+- Post and comment reactor user details (`id`, `name`, and reaction `type`) alongside reaction aggregates: `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY`.
+- Page recommendations and customer reviews with reviewer details (`id`, `name`) and ratings.
 - Page Messenger inbox conversation and direct message extraction with media/file attachments.
-- Local VADER sentiment analysis for comments, reviews, and customer messages.
+- Local VADER sentiment analysis for comments, nested replies, reviews, and customer messages.
 - A **Sync now** browser UI at `http://localhost:8080`.
-- Separate dashboard tabs for comments, post reactions, reviews, and messages.
-- Comment reactions displayed on their individual comment rows.
+- Separate dashboard tabs for comments (with nested reply threads and author chips), post reactions (with expandable reactor lists), reviews (with reviewer badges), and messages.
+- Comment reactions and reactor details displayed on their individual comment rows.
 - Dedicated JSON data exports (`output/messages.json`, `output/comments.json`, `output/reviews.json`, `output/posts.json`, `output/sync-result.json`).
 - Helpful expired-token errors without storing a Facebook password.
 
@@ -33,7 +34,9 @@ Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explore
 
 Copy the Page ID and Page access token returned for the Page. Meta documents `CARE` as a supported reaction type, but some Like metrics may also include Care activity. The dashboard displays the separate CARE value returned by the reactions endpoint.
 
-> **Note:** If `pages_messaging` is missing on your token, the application will log a clear warning and proceed with fetching posts, comments, and reviews without failing.
+> **Privacy Note:** In accordance with Meta Graph API privacy guidelines (v3.0+), user identities in public interactions (reactions, comments, reviews) are represented by their public display `name` and Page-Scoped ID (`PSID` / `ASUID`). Meta does not expose email addresses or phone numbers via public Graph API interaction endpoints.
+
+> **Note:** If `pages_messaging` is missing on your token, the application will log a clear warning and proceed with fetching posts, comments, reactions, and reviews without failing.
 
 ## Configuration
 
@@ -50,11 +53,17 @@ fb.page.id=YOUR_FACEBOOK_PAGE_ID
 fb.access.token=YOUR_PAGE_ACCESS_TOKEN
 fb.api.version=v26.0
 
-# Posts returned by each feed request
+# Posts returned by each feed request (max 100)
 fb.feed.limit=100
 
-# Nested comments returned for each post
+# Top-level comments returned for each post (max 100)
 fb.comment.limit=100
+
+# Nested comment replies returned for each comment (max 100)
+fb.nested_comment.limit=100
+
+# Interacting users returned for reactions on posts and comments (max 100)
+fb.reaction.limit=100
 
 # Conversations per page (max 100)
 fb.conversation.limit=100
@@ -93,9 +102,9 @@ Click **Sync now** to run the complete collection, sentiment analysis, and JSON 
 
 ## Dashboard organization
 
-- **Comments:** Default view containing comment text, parent-post context, sentiment, score, timestamp, and that comment's reactions.
-- **Post reactions:** Post-level reaction totals and the per-post reaction breakdown.
-- **Reviews:** Page recommendations/reviews with ratings and sentiment.
+- **Comments:** Default view containing comment text, commenter name/ID, parent-post context, sentiment, score, timestamp, comment reaction count/reactors, and nested reply threads with author badges.
+- **Post reactions:** Post-level reaction totals, per-type breakdown, and expandable reactor list chips showing who reacted and their reaction emoji/type.
+- **Reviews:** Page recommendations/reviews with reviewer name/ID badge, ratings, and sentiment.
 - **Messages:** Messenger inbox conversations and customer chat threads:
   - Left panel: Searchable thread list showing customer name, message count, latest message timestamp, and customer sentiment badge.
   - Right panel: Full chat transcript with distinct customer (left) and Page (right) bubbles, VADER sentiment scores, and attachment previews (images rendered directly, downloadable files linked).
@@ -105,9 +114,9 @@ Click **Sync now** to run the complete collection, sentiment analysis, and JSON 
 Every sync writes structured JSON files into the `output/` directory (created automatically):
 
 - `output/messages.json`: All analyzed Messenger conversations, thread sentiment summaries, customer messages, Page replies, and attachments.
-- `output/comments.json`: Analyzed post comments with reaction summaries and sentiment labels.
-- `output/reviews.json`: Page reviews and ratings with sentiment labels.
-- `output/posts.json`: Page posts with reaction breakdowns.
+- `output/comments.json`: Analyzed post comments with author details (`from{id, name}`), nested reply threads (`replies[]`), reaction summaries, and individual reactor details (`userReactions[]`).
+- `output/reviews.json`: Page reviews and ratings with reviewer details (`reviewer{id, name}`) and sentiment labels.
+- `output/posts.json`: Page posts with reaction breakdowns and interacting reactors (`userReactions[]`).
 - `output/sync-result.json`: Full aggregate sync payload.
 
 ## Pagination
@@ -132,8 +141,15 @@ src/main/java/com/fbscraper/
 │   ├── FacebookConversation.java
 │   ├── FacebookMessage.java
 │   ├── FacebookParticipant.java
+│   ├── FacebookUser.java
+│   ├── FacebookReaction.java
+│   ├── FacebookComment.java
+│   ├── FacebookPost.java
+│   ├── FacebookReview.java
 │   ├── AnalyzedConversation.java
 │   ├── AnalyzedMessage.java
+│   ├── CommentAnalysis.java
+│   ├── PostReactionAnalysis.java
 │   └── MessageSentimentSummary.java
 ├── sentiment/VaderAnalyzer.java
 ├── service/
