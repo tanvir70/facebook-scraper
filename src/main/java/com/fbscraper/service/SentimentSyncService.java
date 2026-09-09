@@ -150,22 +150,12 @@ public final class SentimentSyncService {
                     post.id(),
                     snippet,
                     post.createdTime(),
-                    post.reactions()
+                    post.reactions(),
+                    post.userReactions()
             ));
 
             for (FacebookComment comment : post.comments()) {
-                SentimentScore score = analyzer.analyze(comment.message());
-                comments.add(new CommentAnalysis(
-                        comment.id(),
-                        post.id(),
-                        snippet,
-                        comment.message(),
-                        comment.createdTime(),
-                        score.compound(),
-                        score.level(),
-                        score.compound() <= config.negativeThreshold(),
-                        comment.reactions()
-                ));
+                comments.add(analyzeComment(comment, post.id(), snippet));
             }
         }
 
@@ -277,10 +267,38 @@ public final class SentimentSyncService {
     }
 
     private ReactionSummary sumCommentReactions(List<FacebookPost> posts) {
-        return sumReactionSummaries(posts.stream()
-                .flatMap(post -> post.comments().stream())
-                .map(FacebookComment::reactions)
-                .toList());
+        List<ReactionSummary> summaries = new ArrayList<>();
+        for (FacebookPost post : posts) {
+            for (FacebookComment comment : post.comments()) {
+                summaries.add(comment.reactions());
+                for (FacebookComment reply : comment.replies()) {
+                    summaries.add(reply.reactions());
+                }
+            }
+        }
+        return sumReactionSummaries(summaries);
+    }
+
+    private CommentAnalysis analyzeComment(FacebookComment comment, String postId, String postSnippet) {
+        SentimentScore score = analyzer.analyze(comment.message());
+        List<CommentAnalysis> replies = new ArrayList<>();
+        for (FacebookComment reply : comment.replies()) {
+            replies.add(analyzeComment(reply, postId, postSnippet));
+        }
+        return new CommentAnalysis(
+                comment.id(),
+                postId,
+                postSnippet,
+                comment.message(),
+                comment.createdTime(),
+                score.compound(),
+                score.level(),
+                score.compound() <= config.negativeThreshold(),
+                comment.reactions(),
+                comment.from(),
+                replies,
+                comment.userReactions()
+        );
     }
 
     private ReactionSummary sumReactionSummaries(List<ReactionSummary> reactions) {
