@@ -11,8 +11,14 @@ dependency-reduced-pom.xml
 *.ipr
 out/
 
+### Gradle ###
+.gradle/
+build/
+
 ### Application runtime & secrets ###
 config.properties
+application.properties
+src/main/resources/application.properties
 .env
 output/
 *.log

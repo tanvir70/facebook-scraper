@@ -1,0 +1,18 @@
+server.port=8080
+
+# Facebook Graph API Configuration
+fb.page-id=YOUR_FACEBOOK_PAGE_ID
+fb.access-token=YOUR_PAGE_ACCESS_TOKEN
+fb.api-version=v26.0
+
+# Pagination and Limits (Meta max 100)
+fb.feed-limit=100
+fb.comment-limit=100
+fb.nested-comment-limit=100
+fb.reaction-limit=100
+fb.conversation-limit=100
+fb.message-limit=100
+fb.max-pages=5
+
+# Sentiment Analysis
+fb.negative-threshold=-0.05
