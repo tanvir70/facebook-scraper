@@ -84,7 +84,7 @@ class DataExportServiceTest {
 
         exportService.exportFacebook(result);
 
-        Path messagesFile = tempDir.resolve("messages.json");
+        Path messagesFile = tempDir.resolve("fb").resolve("messages.json");
         assertThat(Files.exists(messagesFile)).isTrue();
 
         Optional<FacebookSyncResult> loaded = exportService.loadLatestFacebook(-0.05);
@@ -137,9 +137,9 @@ class DataExportServiceTest {
 
         exportService.exportFacebook(result);
 
-        Path commentsFile = tempDir.resolve("comments.json");
-        Path postReactionsFile = tempDir.resolve("post_reactions.json");
-        Path reviewsFile = tempDir.resolve("reviews.json");
+        Path commentsFile = tempDir.resolve("fb").resolve("comments.json");
+        Path postReactionsFile = tempDir.resolve("fb").resolve("post_reactions.json");
+        Path reviewsFile = tempDir.resolve("fb").resolve("reviews.json");
 
         assertThat(Files.exists(commentsFile)).isTrue();
         assertThat(Files.exists(postReactionsFile)).isTrue();
@@ -188,9 +188,9 @@ class DataExportServiceTest {
 
         exportService.exportInstagram(result);
 
-        assertThat(Files.exists(tempDir.resolve("instagram_comments.json"))).isTrue();
-        assertThat(Files.exists(tempDir.resolve("instagram_media.json"))).isTrue();
-        assertThat(Files.exists(tempDir.resolve("instagram_sync-result.json"))).isTrue();
+        assertThat(Files.exists(tempDir.resolve("ig").resolve("comments.json"))).isTrue();
+        assertThat(Files.exists(tempDir.resolve("ig").resolve("media.json"))).isTrue();
+        assertThat(Files.exists(tempDir.resolve("ig").resolve("sync-result.json"))).isTrue();
 
         Optional<InstagramSyncResult> loaded = exportService.loadLatestInstagram(-0.05);
         assertThat(loaded).isPresent();
@@ -198,5 +198,33 @@ class DataExportServiceTest {
         assertThat(loaded.get().comments().get(0).from().name()).isEqualTo("ig_sam");
         assertThat(loaded.get().media()).hasSize(1);
         assertThat(loaded.get().totalLikes()).isEqualTo(10);
+    }
+
+    @Test
+    void shouldFallbackToLegacyRootFiles(@TempDir Path tempDir) throws Exception {
+        DataExportService exportService = new DataExportService(tempDir);
+        Instant now = Instant.parse("2026-09-08T12:00:00Z");
+
+        InstagramUser igUser = new InstagramUser("legacy_user", "legacy_user");
+        InstagramCommentAnalysis comment = new InstagramCommentAnalysis(
+                "c_legacy", "media_legacy", "Snippet", "Legacy comment", now, 0.8,
+                SentimentLevel.POSITIVE, false, 5,
+                igUser, List.of()
+        );
+
+        InstagramSyncResult legacyResult = new InstagramSyncResult(
+                now, -0.05, 0, 1, 5,
+                1, 0, 0, 0, 0, 0.0,
+                List.of(comment), List.of(),
+                MessageSentimentSummary.EMPTY, List.of()
+        );
+
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        mapper.writeValue(tempDir.resolve("instagram_sync-result.json").toFile(), legacyResult);
+
+        Optional<InstagramSyncResult> loaded = exportService.loadLatestInstagram(-0.05);
+        assertThat(loaded).isPresent();
+        assertThat(loaded.get().comments().get(0).from().name()).isEqualTo("legacy_user");
     }
 }

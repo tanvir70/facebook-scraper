@@ -374,6 +374,7 @@
             background: #eef3ff;
         }
 
+        [hidden] { display: none !important; }
         .tab-panel[hidden] { display: none; }
 
         .reactions-card {
@@ -387,6 +388,10 @@
             gap: 10px;
             padding: 18px 22px;
             border-bottom: 1px solid var(--line);
+        }
+
+        .reaction-summary.ig-mode {
+            grid-template-columns: minmax(160px, 220px) !important;
         }
 
         .reaction-item {
@@ -908,12 +913,12 @@
             <span id="negativeValue" class="stat-value">—</span>
             <span id="negativeDetail" class="stat-detail">Configured threshold</span>
         </article>
-        <article class="card stat">
+        <article class="card stat" id="reviewsStatCard">
             <span id="reviewsLabel" class="stat-label">Page reviews</span>
             <span id="reviewsValue" class="stat-value">—</span>
             <span id="reviewsDetail" class="stat-detail">Recommendations and reviews</span>
         </article>
-        <article class="card stat">
+        <article class="card stat" id="ratingStatCard">
             <span id="ratingLabel" class="stat-label">Page rating</span>
             <span id="ratingValue" class="stat-value">—</span>
             <span id="ratingDetail" class="stat-detail">No rating loaded</span>
@@ -954,7 +959,7 @@
     <nav class="tabs" aria-label="Dashboard views">
         <button class="tab-button active" data-tab="comments" type="button">Comments</button>
         <button class="tab-button" data-tab="post-reactions" type="button">Post reactions</button>
-        <button class="tab-button" data-tab="reviews" type="button">Reviews</button>
+        <button class="tab-button" data-tab="reviews" id="reviewsTabBtn" type="button">Reviews</button>
         <button class="tab-button" data-tab="messages" type="button">Messages</button>
     </nav>
 
@@ -997,20 +1002,20 @@
         <article class="card reactions-card">
             <div class="results-header">
                 <div>
-                    <h2>Post reactions</h2>
+                    <h2 id="reactionsHeading">Post reactions</h2>
                     <span id="reactionMeta" class="section-meta">Run a sync to load reactions</span>
                 </div>
             </div>
-            <div class="reaction-summary" aria-label="Reaction totals by type">
-                <div class="reaction-item">Like<strong id="likeCount">—</strong></div>
-                <div class="reaction-item">Love<strong id="loveCount">—</strong></div>
-                <div class="reaction-item">Care<strong id="careCount">—</strong></div>
-                <div class="reaction-item">Haha<strong id="hahaCount">—</strong></div>
-                <div class="reaction-item">Wow<strong id="wowCount">—</strong></div>
-                <div class="reaction-item">Sad<strong id="sadCount">—</strong></div>
-                <div class="reaction-item">Angry<strong id="angryCount">—</strong></div>
+            <div id="reactionSummary" class="reaction-summary" aria-label="Reaction totals by type">
+                <div class="reaction-item" id="rxLikeItem"><span id="rxLikeLabel">Like</span><strong id="likeCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Love<strong id="loveCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Care<strong id="careCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Haha<strong id="hahaCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Wow<strong id="wowCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Sad<strong id="sadCount">—</strong></div>
+                <div class="reaction-item rx-fb-only">Angry<strong id="angryCount">—</strong></div>
             </div>
-            <p class="reaction-note">Meta can include some Care activity in Like counts; Care shows the separate CARE result returned by the API.</p>
+            <p id="reactionNote" class="reaction-note">Meta can include some Care activity in Like counts; Care shows the separate CARE result returned by the API.</p>
             <div id="reactionEmpty" class="empty">
                 <strong>No reactions loaded</strong>
                 Click Sync now to fetch reaction totals for each Page post.
@@ -1018,7 +1023,7 @@
             <div id="reactionTableWrap" class="table-wrap" hidden>
                 <table>
                     <thead>
-                    <tr>
+                    <tr id="reactionHeaderRow">
                         <th>Post</th>
                         <th>Total</th>
                         <th>Like</th>
@@ -1036,7 +1041,7 @@
         </article>
     </section>
 
-    <section class="tab-panel" data-panel="reviews" hidden>
+    <section class="tab-panel" data-panel="reviews" id="reviewsPanel" hidden>
         <article class="card results-card">
             <div class="results-header">
                 <div>
@@ -1147,6 +1152,44 @@
         document.getElementById('postsLabel').textContent = isIg ? 'Media fetched' : 'Posts fetched';
         document.getElementById('reviewsLabel').textContent = isIg ? 'Instagram reviews' : 'Page reviews';
 
+        const reviewsStatCard = document.getElementById('reviewsStatCard');
+        const ratingStatCard = document.getElementById('ratingStatCard');
+        const reviewsTabBtn = document.getElementById('reviewsTabBtn');
+        const reviewsPanel = document.getElementById('reviewsPanel');
+
+        if (reviewsStatCard) reviewsStatCard.hidden = isIg;
+        if (ratingStatCard) ratingStatCard.hidden = isIg;
+        if (reviewsTabBtn) reviewsTabBtn.hidden = isIg;
+        if (isIg && reviewsPanel) reviewsPanel.hidden = true;
+
+        if (isIg) {
+            const activeTabBtn = document.querySelector('.tab-button.active');
+            if (activeTabBtn && activeTabBtn.dataset.tab === 'reviews') {
+                selectTab('comments');
+            }
+        }
+
+        // Adapt reactions UI for Instagram (only one Love / Like reaction)
+        const rxSummary = document.getElementById('reactionSummary');
+        const rxLikeLabel = document.getElementById('rxLikeLabel');
+        const rxNote = document.getElementById('reactionNote');
+        const fbRxItems = document.querySelectorAll('.rx-fb-only');
+        const rxHeaderRow = document.getElementById('reactionHeaderRow');
+        const rxHeading = document.getElementById('reactionsHeading');
+        const rxTabBtn = document.querySelector('.tab-button[data-tab="post-reactions"]');
+
+        if (rxSummary) rxSummary.classList.toggle('ig-mode', isIg);
+        if (rxLikeLabel) rxLikeLabel.textContent = isIg ? 'Love / Like ❤️' : 'Like';
+        if (rxNote) rxNote.hidden = isIg;
+        fbRxItems.forEach(item => item.hidden = isIg);
+        if (rxHeading) rxHeading.textContent = isIg ? 'Media reactions' : 'Post reactions';
+        if (rxTabBtn) rxTabBtn.textContent = isIg ? 'Media reactions' : 'Post reactions';
+        if (rxHeaderRow) {
+            rxHeaderRow.innerHTML = isIg
+                ? '<th>Media</th><th style="text-align: center; width: 160px;">Love / Like ❤️</th>'
+                : '<th>Post</th><th>Total</th><th>Like</th><th>Love</th><th>Care</th><th>Haha</th><th>Wow</th><th>Sad</th><th>Angry</th>';
+        }
+
         const syncBtn = document.getElementById('syncButton');
         if (isIg) {
             syncBtn.style.background = 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)';
@@ -1240,6 +1283,19 @@
         document.getElementById('threadEmptyState').hidden = false;
         document.getElementById('chatMessages').replaceChildren();
         document.getElementById('chatEmptyState').hidden = false;
+
+        document.getElementById('likeCount').textContent = '—';
+        ['love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+            const el = document.getElementById(`${type}Count`);
+            if (el) el.textContent = '—';
+        });
+        document.getElementById('reactionMeta').textContent = isIg ? 'Run a sync to load Instagram media likes' : 'Run a sync to load reactions';
+        document.getElementById('reactionRows').replaceChildren();
+        document.getElementById('reactionTableWrap').hidden = true;
+        document.getElementById('reactionEmpty').hidden = false;
+        document.getElementById('reactionEmpty').innerHTML = isIg
+            ? '<strong>No media likes loaded</strong>Click Sync now to fetch like counts for Instagram media.'
+            : '<strong>No reactions loaded</strong>Click Sync now to fetch reaction totals for each Page post.';
     }
 
     async function syncNow() {
@@ -1319,15 +1375,13 @@
         const isIg = currentPlatform === 'instagram';
         if (isIg) {
             document.getElementById('likeCount').textContent = result.totalLikes ?? 0;
-            ['love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
-                document.getElementById(`${type}Count`).textContent = '—';
-            });
             document.getElementById('reactionMeta').textContent =
                 `${result.totalLikes ?? 0} Likes across ${result.totalMedia ?? 0} media items (Meta does not disclose reactor user identities on Instagram)`;
         } else {
             const totals = result.reactionTotals || {};
             ['like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
-                document.getElementById(`${type}Count`).textContent = totals[type] ?? 0;
+                const el = document.getElementById(`${type}Count`);
+                if (el) el.textContent = totals[type] ?? 0;
             });
             document.getElementById('reactionMeta').textContent =
                 `${result.totalReactions} reactions across ${result.totalPosts} posts`;
@@ -1336,13 +1390,22 @@
         const postReactions = isIg
             ? (result.media || []).map(m => ({
                 postSnippet: m.mediaSnippet || '[Instagram Media]',
-                reactions: { total: m.likeCount, like: m.likeCount, love: '—', care: '—', haha: '—', wow: '—', sad: '—', angry: '—' },
+                permalink: m.permalink,
+                likeCount: m.likeCount ?? 0,
+                reactions: { total: m.likeCount ?? 0, like: m.likeCount ?? 0 },
                 userReactions: []
             }))
             : (result.postReactions || []);
         document.getElementById('reactionRows').replaceChildren(...postReactions.map(createReactionRow));
         document.getElementById('reactionTableWrap').hidden = postReactions.length === 0;
         document.getElementById('reactionEmpty').hidden = postReactions.length > 0;
+        if (isIg && postReactions.length === 0) {
+            document.getElementById('reactionEmpty').innerHTML =
+                '<strong>No media likes loaded</strong>Click Sync now to fetch like counts for Instagram media.';
+        } else if (!isIg && postReactions.length === 0) {
+            document.getElementById('reactionEmpty').innerHTML =
+                '<strong>No reactions loaded</strong>Click Sync now to fetch reaction totals for each Page post.';
+        }
     }
 
     function renderReviews(result) {
@@ -1392,14 +1455,26 @@
     }
 
     function createReactionRow(post) {
+        const isIg = currentPlatform === 'instagram';
         const row = document.createElement('tr');
         const postCell = document.createElement('td');
         postCell.className = 'reaction-post';
         const titleDiv = document.createElement('div');
-        titleDiv.textContent = post.postSnippet || '[No post text]';
+        titleDiv.textContent = post.postSnippet || (isIg ? '[Instagram Media]' : '[No post text]');
+        if (isIg && post.permalink) {
+            const link = document.createElement('a');
+            link.href = post.permalink;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = ' ↗ View';
+            link.style.fontSize = '12px';
+            link.style.marginLeft = '8px';
+            link.style.color = 'var(--brand)';
+            titleDiv.appendChild(link);
+        }
         postCell.appendChild(titleDiv);
 
-        if (post.userReactions && post.userReactions.length > 0) {
+        if (!isIg && post.userReactions && post.userReactions.length > 0) {
             const reactorsToggle = document.createElement('details');
             reactorsToggle.className = 'post-reactors-details';
             const summary = document.createElement('summary');
@@ -1420,12 +1495,20 @@
         }
         row.appendChild(postCell);
 
-        ['total', 'like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+        if (isIg) {
             const cell = document.createElement('td');
             cell.className = 'reaction-number';
-            cell.textContent = post.reactions?.[type] ?? 0;
+            const count = post.likeCount ?? post.reactions?.like ?? post.reactions?.total ?? 0;
+            cell.innerHTML = `<span style="font-weight: 700; color: #e1306c;">❤️ ${count}</span>`;
             row.appendChild(cell);
-        });
+        } else {
+            ['total', 'like', 'love', 'care', 'haha', 'wow', 'sad', 'angry'].forEach(type => {
+                const cell = document.createElement('td');
+                cell.className = 'reaction-number';
+                cell.textContent = post.reactions?.[type] ?? 0;
+                row.appendChild(cell);
+            });
+        }
         return row;
     }
 
@@ -1656,6 +1739,9 @@
     }
 
     function selectTab(tab) {
+        if (currentPlatform === 'instagram' && tab === 'reviews') {
+            tab = 'comments';
+        }
         document.querySelectorAll('.tab-button').forEach(button => {
             button.classList.toggle('active', button.dataset.tab === tab);
         });

@@ -103,18 +103,19 @@ public class DataExportService {
         }
 
         try {
-            ensureDirectory();
+            Path fbDir = facebookOutputDir();
+            ensureDirectory(fbDir);
 
-            Path reviewsFile = outputDir.resolve("reviews.json");
+            Path reviewsFile = fbDir.resolve("reviews.json");
             objectMapper.writeValue(reviewsFile.toFile(), result.reviews());
 
-            Path ratingsFile = outputDir.resolve("ratings.json");
+            Path ratingsFile = fbDir.resolve("ratings.json");
             objectMapper.writeValue(ratingsFile.toFile(), result.pageRating());
 
-            Path commentsFile = outputDir.resolve("comments.json");
+            Path commentsFile = fbDir.resolve("comments.json");
             objectMapper.writeValue(commentsFile.toFile(), result.comments());
 
-            Path postReactionsFile = outputDir.resolve("post_reactions.json");
+            Path postReactionsFile = fbDir.resolve("post_reactions.json");
             FacebookPostReactionsExport postReactionsExport = new FacebookPostReactionsExport(
                     result.syncedAt(),
                     result.totalReactions(),
@@ -123,7 +124,7 @@ public class DataExportService {
             );
             objectMapper.writeValue(postReactionsFile.toFile(), postReactionsExport);
 
-            Path commentReactionsFile = outputDir.resolve("comment_reactions.json");
+            Path commentReactionsFile = fbDir.resolve("comment_reactions.json");
             FacebookCommentReactionsExport commentReactionsExport = new FacebookCommentReactionsExport(
                     result.totalCommentReactions(),
                     result.commentReactionTotals()
@@ -131,7 +132,7 @@ public class DataExportService {
             objectMapper.writeValue(commentReactionsFile.toFile(), commentReactionsExport);
 
             if (result.conversations() != null) {
-                Path messagesFile = outputDir.resolve("messages.json");
+                Path messagesFile = fbDir.resolve("messages.json");
                 FacebookMessagesExport messagesExport = new FacebookMessagesExport(
                         result.syncedAt(),
                         result.messageSummary(),
@@ -140,10 +141,10 @@ public class DataExportService {
                 objectMapper.writeValue(messagesFile.toFile(), messagesExport);
             }
 
-            Path syncResultFile = outputDir.resolve("sync-result.json");
+            Path syncResultFile = fbDir.resolve("sync-result.json");
             objectMapper.writeValue(syncResultFile.toFile(), result);
 
-            System.out.println("[DataExportService] Successfully exported Facebook sync data to: " + outputDir.toAbsolutePath());
+            System.out.println("[DataExportService] Successfully exported Facebook sync data to: " + fbDir.toAbsolutePath());
         } catch (IOException e) {
             System.err.println("[DataExportService] Failed to export Facebook sync data: " + e.getMessage());
         }
@@ -155,12 +156,13 @@ public class DataExportService {
         }
 
         try {
-            ensureDirectory();
+            Path igDir = instagramOutputDir();
+            ensureDirectory(igDir);
 
-            Path commentsFile = outputDir.resolve("instagram_comments.json");
+            Path commentsFile = igDir.resolve("comments.json");
             objectMapper.writeValue(commentsFile.toFile(), result.comments());
 
-            Path mediaFile = outputDir.resolve("instagram_media.json");
+            Path mediaFile = igDir.resolve("media.json");
             InstagramMediaExport mediaExport = new InstagramMediaExport(
                     result.syncedAt(),
                     result.totalMedia(),
@@ -170,7 +172,7 @@ public class DataExportService {
             objectMapper.writeValue(mediaFile.toFile(), mediaExport);
 
             if (result.conversations() != null) {
-                Path messagesFile = outputDir.resolve("instagram_messages.json");
+                Path messagesFile = igDir.resolve("messages.json");
                 InstagramMessagesExport messagesExport = new InstagramMessagesExport(
                         result.syncedAt(),
                         result.messageSummary(),
@@ -179,10 +181,10 @@ public class DataExportService {
                 objectMapper.writeValue(messagesFile.toFile(), messagesExport);
             }
 
-            Path syncResultFile = outputDir.resolve("instagram_sync-result.json");
+            Path syncResultFile = igDir.resolve("sync-result.json");
             objectMapper.writeValue(syncResultFile.toFile(), result);
 
-            System.out.println("[DataExportService] Successfully exported Instagram sync data to: " + outputDir.toAbsolutePath());
+            System.out.println("[DataExportService] Successfully exported Instagram sync data to: " + igDir.toAbsolutePath());
         } catch (IOException e) {
             System.err.println("[DataExportService] Failed to export Instagram sync data: " + e.getMessage());
         }
@@ -193,7 +195,8 @@ public class DataExportService {
     }
 
     public Optional<FacebookSyncResult> loadLatestFacebook(double negativeThreshold) {
-        Path syncResultFile = outputDir.resolve("sync-result.json");
+        Path dir = resolveFacebookDir();
+        Path syncResultFile = dir.resolve("sync-result.json");
         if (Files.exists(syncResultFile)) {
             try {
                 FacebookSyncResult result = objectMapper.readValue(syncResultFile.toFile(), FacebookSyncResult.class);
@@ -204,12 +207,12 @@ public class DataExportService {
             }
         }
 
-        Path commentsFile = outputDir.resolve("comments.json");
-        Path reviewsFile = outputDir.resolve("reviews.json");
-        Path ratingsFile = outputDir.resolve("ratings.json");
-        Path postReactionsFile = outputDir.resolve("post_reactions.json");
-        Path commentReactionsFile = outputDir.resolve("comment_reactions.json");
-        Path messagesFile = outputDir.resolve("messages.json");
+        Path commentsFile = dir.resolve("comments.json");
+        Path reviewsFile = dir.resolve("reviews.json");
+        Path ratingsFile = dir.resolve("ratings.json");
+        Path postReactionsFile = dir.resolve("post_reactions.json");
+        Path commentReactionsFile = dir.resolve("comment_reactions.json");
+        Path messagesFile = dir.resolve("messages.json");
 
         if (!Files.exists(commentsFile) && !Files.exists(reviewsFile) && !Files.exists(messagesFile)) {
             return Optional.empty();
@@ -278,7 +281,7 @@ public class DataExportService {
                     messagesExport.conversations()
             );
 
-            System.out.println("[DataExportService] Pre-loaded previous Facebook data from: " + outputDir.toAbsolutePath()
+            System.out.println("[DataExportService] Pre-loaded previous Facebook data from: " + dir.toAbsolutePath()
                     + " (" + comments.size() + " comments, " + reviews.size() + " reviews, " + posts.size() + " posts)");
             return Optional.of(result);
         } catch (Exception e) {
@@ -288,7 +291,8 @@ public class DataExportService {
     }
 
     public Optional<InstagramSyncResult> loadLatestInstagram(double negativeThreshold) {
-        Path syncResultFile = outputDir.resolve("instagram_sync-result.json");
+        Path dir = resolveInstagramDir();
+        Path syncResultFile = resolveFile(dir, "sync-result.json", "instagram_sync-result.json");
         if (Files.exists(syncResultFile)) {
             try {
                 InstagramSyncResult result = objectMapper.readValue(syncResultFile.toFile(), InstagramSyncResult.class);
@@ -299,9 +303,9 @@ public class DataExportService {
             }
         }
 
-        Path commentsFile = outputDir.resolve("instagram_comments.json");
-        Path mediaFile = outputDir.resolve("instagram_media.json");
-        Path messagesFile = outputDir.resolve("instagram_messages.json");
+        Path commentsFile = resolveFile(dir, "comments.json", "instagram_comments.json");
+        Path mediaFile = resolveFile(dir, "media.json", "instagram_media.json");
+        Path messagesFile = resolveFile(dir, "messages.json", "instagram_messages.json");
 
         if (!Files.exists(commentsFile) && !Files.exists(mediaFile) && !Files.exists(messagesFile)) {
             return Optional.empty();
@@ -349,7 +353,7 @@ public class DataExportService {
                     messagesExport.conversations()
             );
 
-            System.out.println("[DataExportService] Pre-loaded previous Instagram data from: " + outputDir.toAbsolutePath()
+            System.out.println("[DataExportService] Pre-loaded previous Instagram data from: " + dir.toAbsolutePath()
                     + " (" + comments.size() + " comments, " + mediaExport.totalMedia() + " media)");
             return Optional.of(result);
         } catch (Exception e) {
@@ -358,9 +362,63 @@ public class DataExportService {
         }
     }
 
-    private void ensureDirectory() throws IOException {
-        if (!Files.exists(outputDir)) {
-            Files.createDirectories(outputDir);
+    public Path outputDir() {
+        return outputDir;
+    }
+
+    public Path facebookOutputDir() {
+        return outputDir.resolve("fb");
+    }
+
+    public Path instagramOutputDir() {
+        return outputDir.resolve("ig");
+    }
+
+    private Path resolveFacebookDir() {
+        Path fbDir = facebookOutputDir();
+        if (Files.exists(fbDir)) {
+            return fbDir;
+        }
+        Path altDir = outputDir.resolve("facebook");
+        if (Files.exists(altDir)) {
+            return altDir;
+        }
+        return outputDir;
+    }
+
+    private Path resolveInstagramDir() {
+        Path igDir = instagramOutputDir();
+        if (Files.exists(igDir)) {
+            return igDir;
+        }
+        Path altDir = outputDir.resolve("instagram");
+        if (Files.exists(altDir)) {
+            return altDir;
+        }
+        return outputDir;
+    }
+
+    private Path resolveFile(Path dir, String primaryName, String legacyName) {
+        Path primary = dir.resolve(primaryName);
+        if (Files.exists(primary)) {
+            return primary;
+        }
+        Path legacyInDir = dir.resolve(legacyName);
+        if (Files.exists(legacyInDir)) {
+            return legacyInDir;
+        }
+        if (!dir.equals(outputDir)) {
+            Path legacyInRoot = outputDir.resolve(legacyName);
+            if (Files.exists(legacyInRoot)) {
+                return legacyInRoot;
+            }
+        }
+        return primary;
+    }
+
+    private void ensureDirectory(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            Files.createDirectories(dir);
         }
     }
 
@@ -680,9 +738,5 @@ public class DataExportService {
         } else {
             return SentimentLevel.NEUTRAL;
         }
-    }
-
-    public Path outputDir() {
-        return outputDir;
     }
 }
