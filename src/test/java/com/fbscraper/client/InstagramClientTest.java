@@ -142,4 +142,59 @@ class InstagramClientTest {
         List<InstagramConversation> convs = client.fetchConversations();
         assertThat(convs).isEmpty();
     }
+
+    @Test
+    void shouldEnrichCommentAuthorsDuringMediaFetch() {
+        AppConfig config = new AppConfig("fb_page_123", "tok_valid", "v26.0", 10, 10, 10, 10, 10, 10, 2, -0.05, "178414000123");
+
+        String mediaJson = """
+                {
+                  "data": [
+                    {
+                      "id": "media_99",
+                      "caption": "Test Post",
+                      "timestamp": "2026-09-08T12:00:00+0000",
+                      "like_count": 5,
+                      "comments": {
+                        "data": [
+                          {
+                            "id": "c_1",
+                            "text": "Hello world",
+                            "timestamp": "2026-09-08T12:30:00+0000",
+                            "username": "tawsifrahman113",
+                            "like_count": 2
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        String profileHtml = """
+                <html>
+                <head>
+                    <meta property="og:title" content="Tawsif Rahman TS (@tawsifrahman113) • Instagram photos" />
+                    <meta property="og:image" content="https://cdn.example.com/avatar.jpg" />
+                </head>
+                </html>
+                """;
+
+        InstagramProfileResolver resolver = new InstagramProfileResolver(request -> new FakeResponse(200, profileHtml));
+        InstagramClient client = new InstagramClient(
+                config,
+                request -> new FakeResponse(200, mediaJson),
+                new InstagramResponseParser(),
+                resolver
+        );
+
+        List<InstagramMedia> media = client.fetchMedia();
+        assertThat(media).hasSize(1);
+        assertThat(media.get(0).comments()).hasSize(1);
+
+        var comment = media.get(0).comments().get(0);
+        assertThat(comment.from().username()).isEqualTo("tawsifrahman113");
+        assertThat(comment.from().name()).isEqualTo("Tawsif Rahman TS");
+        assertThat(comment.from().pictureUrl()).isEqualTo("https://cdn.example.com/avatar.jpg");
+    }
 }

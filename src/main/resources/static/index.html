@@ -788,6 +788,36 @@
             line-height: 1.2;
         }
 
+        .author-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .author-name a:hover {
+            color: #4f46e5;
+            text-decoration: underline;
+        }
+
+        .author-handle {
+            margin-top: 1px;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .author-handle a {
+            color: #6366f1;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .author-handle a:hover {
+            text-decoration: underline;
+        }
+
+        .comment-author.small .author-handle {
+            font-size: 10px;
+        }
+
         .author-id {
             margin-top: 2px;
             color: var(--muted);
@@ -1671,7 +1701,7 @@
             const fallback = document.createElement('span');
             fallback.className = isSmall ? 'author-fallback small' : 'author-fallback';
             const rawName = author.name || author.username || '';
-            fallback.textContent = (rawName.trim().charAt(0) || '?').toUpperCase();
+            fallback.textContent = (rawName.replace(/^@/, '').trim().charAt(0) || '?').toUpperCase();
             wrapper.appendChild(fallback);
         }
 
@@ -1680,28 +1710,53 @@
         const name = document.createElement('div');
         name.className = 'author-name';
 
-        const rawHandle = author.username || author.name || '';
-        if (isIg && rawHandle && rawHandle !== 'Instagram User' && rawHandle !== 'Anonymous') {
-            const cleanHandle = rawHandle.replace(/^@/, '');
-            const link = document.createElement('a');
-            link.href = `https://www.instagram.com/${cleanHandle}/`;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = `@${cleanHandle}`;
-            link.style.color = 'inherit';
-            link.style.textDecoration = 'none';
-            link.title = `View @${cleanHandle} on Instagram`;
-            name.appendChild(link);
+        const rawHandle = author.username || '';
+        const rawName = author.name || '';
+        if (isIg && (rawHandle || rawName)) {
+            const cleanHandle = (rawHandle || rawName).replace(/^@/, '');
+            const hasValidHandle = cleanHandle && cleanHandle !== 'Instagram User' && cleanHandle !== 'Anonymous';
+            const hasDistinctName = rawName && rawName !== 'Instagram User' && rawName !== 'Anonymous'
+                && rawName.toLowerCase() !== cleanHandle.toLowerCase()
+                && rawName.toLowerCase() !== `@${cleanHandle.toLowerCase()}`;
+
+            if (hasDistinctName) {
+                name.textContent = rawName;
+                details.appendChild(name);
+
+                if (hasValidHandle) {
+                    const handleDiv = document.createElement('div');
+                    handleDiv.className = 'author-handle';
+                    const link = document.createElement('a');
+                    link.href = `https://www.instagram.com/${cleanHandle}/`;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = `@${cleanHandle}`;
+                    link.title = `View @${cleanHandle} on Instagram`;
+                    handleDiv.appendChild(link);
+                    details.appendChild(handleDiv);
+                }
+            } else if (hasValidHandle) {
+                const link = document.createElement('a');
+                link.href = `https://www.instagram.com/${cleanHandle}/`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = `@${cleanHandle}`;
+                link.title = `View @${cleanHandle} on Instagram`;
+                name.appendChild(link);
+                details.appendChild(name);
+            } else {
+                name.textContent = rawName || rawHandle || 'Instagram User';
+                details.appendChild(name);
+            }
         } else {
             name.textContent = author.name || author.username || (author.id ? `User ${author.id}` : 'Anonymous');
-        }
-        details.appendChild(name);
-
-        if (!isIg && author.id) {
-            const id = document.createElement('div');
-            id.className = 'author-id';
-            id.textContent = `ID: ${author.id}`;
-            details.appendChild(id);
+            details.appendChild(name);
+            if (!isIg && author.id) {
+                const id = document.createElement('div');
+                id.className = 'author-id';
+                id.textContent = `ID: ${author.id}`;
+                details.appendChild(id);
+            }
         }
         wrapper.appendChild(details);
         return wrapper;

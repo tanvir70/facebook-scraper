@@ -21,33 +21,47 @@ public class InstagramClient {
     private final AppConfig config;
     private final FacebookClient.HttpSender httpSender;
     private final InstagramResponseParser parser;
+    private final InstagramProfileResolver profileResolver;
     private volatile String cachedBusinessAccountId;
 
     public InstagramClient(AppConfig config) {
-        this(config, HttpClient.newHttpClient(), new InstagramResponseParser());
+        this(config, HttpClient.newHttpClient(), new InstagramResponseParser(), new InstagramProfileResolver());
     }
 
     public InstagramClient(AppConfig config, HttpClient httpClient) {
-        this(config, request -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()), new InstagramResponseParser());
+        this(config, request -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()), new InstagramResponseParser(), new InstagramProfileResolver());
     }
 
     public InstagramClient(AppConfig config, FacebookClient.HttpSender httpSender) {
-        this(config, httpSender, new InstagramResponseParser());
+        this(config, httpSender, new InstagramResponseParser(), new InstagramProfileResolver());
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public InstagramClient(AppConfig config, InstagramResponseParser parser) {
-        this(config, HttpClient.newHttpClient(), parser);
+        this(config, HttpClient.newHttpClient(), parser, new InstagramProfileResolver());
     }
 
     public InstagramClient(AppConfig config, HttpClient httpClient, InstagramResponseParser parser) {
-        this(config, request -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()), parser);
+        this(config, request -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()), parser, new InstagramProfileResolver());
     }
 
     public InstagramClient(AppConfig config, FacebookClient.HttpSender httpSender, InstagramResponseParser parser) {
+        this(config, httpSender, parser, new InstagramProfileResolver());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public InstagramClient(AppConfig config, InstagramResponseParser parser, InstagramProfileResolver profileResolver) {
+        this(config, HttpClient.newHttpClient(), parser, profileResolver);
+    }
+
+    public InstagramClient(AppConfig config, HttpClient httpClient, InstagramResponseParser parser, InstagramProfileResolver profileResolver) {
+        this(config, request -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()), parser, profileResolver);
+    }
+
+    public InstagramClient(AppConfig config, FacebookClient.HttpSender httpSender, InstagramResponseParser parser, InstagramProfileResolver profileResolver) {
         this.config = config;
         this.httpSender = httpSender;
         this.parser = parser;
+        this.profileResolver = profileResolver != null ? profileResolver : new InstagramProfileResolver();
     }
 
     public String resolveBusinessAccountId() {
@@ -127,7 +141,12 @@ public class InstagramClient {
             currentUrl = withAccessToken(page.nextUrl());
         }
 
-        return allMedia;
+        if (allMedia.isEmpty()) {
+            return allMedia;
+        }
+
+        System.out.printf("[InstagramClient] Resolving commenter public profile details for %d media items...%n", allMedia.size());
+        return profileResolver.resolveMediaList(allMedia);
     }
 
     public List<InstagramConversation> fetchConversations() {
