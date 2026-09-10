@@ -64,6 +64,7 @@ public final class SentimentSyncService {
                         snippet,
                         comment.message(),
                         comment.createdTime(),
+                        comment.author(),
                         score.compound(),
                         score.level(),
                         score.compound() <= config.negativeThreshold(),

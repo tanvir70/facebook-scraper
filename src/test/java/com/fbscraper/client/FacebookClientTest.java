@@ -55,6 +55,11 @@ class FacebookClientTest {
                       "id": "c_1",
                       "message": "Nice test!",
                       "created_time": "2026-07-01T12:05:00+0000",
+                      "from": {
+                        "id": "user_1",
+                        "name": "Ada Customer",
+                        "picture": {"data": {"url": "https://example.com/ada.jpg"}}
+                      },
                       "reaction_total": {"summary": {"total_count": 3}},
                       "reaction_like": {"summary": {"total_count": 1}},
                       "reaction_care": {"summary": {"total_count": 2}}
@@ -72,6 +77,9 @@ class FacebookClientTest {
         assertThat(post.createdTime()).isEqualTo(Instant.parse("2026-07-01T12:00:00Z"));
         assertThat(post.comments().get(0).reactions().total()).isEqualTo(3);
         assertThat(post.comments().get(0).reactions().care()).isEqualTo(2);
+        assertThat(post.comments().get(0).author().id()).isEqualTo("user_1");
+        assertThat(post.comments().get(0).author().name()).isEqualTo("Ada Customer");
+        assertThat(post.comments().get(0).author().pictureUrl()).isEqualTo("https://example.com/ada.jpg");
         assertThat(page.nextUrl()).contains("after=next");
     }
 
@@ -85,6 +93,7 @@ class FacebookClientTest {
                 .contains("/v26.0/123/feed?")
                 .contains("limit=100")
                 .contains("comments.limit(75){id,message,created_time,")
+                .contains("from{id,name,picture}")
                 .contains("reactions.type(CARE).limit(0).summary(total_count).as(reaction_care)")
                 .contains("reactions.type(ANGRY).limit(0).summary(total_count).as(reaction_angry)")
                 .contains("access_token=token");

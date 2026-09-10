@@ -43,6 +43,19 @@ class ModelTest {
     }
 
     @Test
+    void shouldStoreOnlyUsefulCommentAuthorFields() {
+        CommentAuthor author = new CommentAuthor("user_1", "Ada Customer", "https://example.com/ada.jpg");
+        FacebookComment comment = new FacebookComment(
+                "c3", "Please help", Instant.now(), author, ReactionSummary.empty()
+        );
+
+        assertThat(comment.author().id()).isEqualTo("user_1");
+        assertThat(comment.author().name()).isEqualTo("Ada Customer");
+        assertThat(comment.author().pictureUrl()).isEqualTo("https://example.com/ada.jpg");
+        assertThat(comment.author().isAvailable()).isTrue();
+    }
+
+    @Test
     void shouldHandleNullCommentsGracefullyInPost() {
         FacebookPost post = new FacebookPost("p2", "Post without comments", Instant.now(), null, null);
         assertThat(post.comments()).isNotNull().isEmpty();

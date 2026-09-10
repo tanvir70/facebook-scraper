@@ -480,6 +480,41 @@
             font-weight: 600;
         }
 
+        .comment-author {
+            display: flex;
+            align-items: center;
+            min-width: 170px;
+            gap: 10px;
+        }
+
+        .author-avatar,
+        .author-fallback {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            border-radius: 50%;
+        }
+
+        .author-avatar { object-fit: cover; }
+
+        .author-fallback {
+            display: grid;
+            place-items: center;
+            color: #2558a8;
+            background: #e8f0ff;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .author-name { font-weight: 750; }
+
+        .author-id {
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 10px;
+            overflow-wrap: anywhere;
+        }
+
         .post-context {
             max-width: 360px;
             margin-top: 5px;
@@ -634,6 +669,7 @@
                     <thead>
                     <tr>
                         <th>Sentiment</th>
+                        <th>Commenter</th>
                         <th>Comment and post</th>
                         <th>Reactions</th>
                         <th>Score</th>
@@ -864,6 +900,9 @@
         badge.textContent = levelLabel(comment.level);
         sentimentCell.appendChild(badge);
 
+        const authorCell = document.createElement('td');
+        authorCell.appendChild(createAuthor(comment.author));
+
         const messageCell = document.createElement('td');
         const message = document.createElement('div');
         message.className = 'comment-text';
@@ -893,8 +932,41 @@
         timeCell.className = 'time';
         timeCell.textContent = formatTime(comment.createdTime);
 
-        row.append(sentimentCell, messageCell, reactionCell, scoreCell, timeCell);
+        row.append(sentimentCell, authorCell, messageCell, reactionCell, scoreCell, timeCell);
         return row;
+    }
+
+    function createAuthor(author = {}) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'comment-author';
+
+        if (author.pictureUrl) {
+            const picture = document.createElement('img');
+            picture.className = 'author-avatar';
+            picture.src = author.pictureUrl;
+            picture.alt = '';
+            picture.loading = 'lazy';
+            wrapper.appendChild(picture);
+        } else {
+            const fallback = document.createElement('span');
+            fallback.className = 'author-fallback';
+            fallback.textContent = (author.name || '?').trim().charAt(0).toUpperCase() || '?';
+            wrapper.appendChild(fallback);
+        }
+
+        const details = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'author-name';
+        name.textContent = author.name || 'Profile unavailable';
+        details.appendChild(name);
+        if (author.id) {
+            const id = document.createElement('div');
+            id.className = 'author-id';
+            id.textContent = `ID: ${author.id}`;
+            details.appendChild(id);
+        }
+        wrapper.appendChild(details);
+        return wrapper;
     }
 
     function typeLabel(type) {

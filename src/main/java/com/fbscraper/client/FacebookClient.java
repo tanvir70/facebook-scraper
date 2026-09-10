@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.CommentAuthor;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
@@ -129,6 +130,7 @@ public class FacebookClient {
                                     commentNode.path("id").asText(""),
                                     commentNode.path("message").asText(""),
                                     parseInstant(commentNode.path("created_time").asText("")),
+                                    parseCommentAuthor(commentNode.path("from")),
                                     parseReactions(commentNode)
                             ));
                         }
@@ -155,7 +157,7 @@ public class FacebookClient {
 
     public String buildFeedUrl() {
         String fields = String.format(
-                "id,message,created_time,permalink_url,%s,comments.limit(%d){id,message,created_time,%s}",
+                "id,message,created_time,permalink_url,%s,comments.limit(%d){id,message,created_time,from{id,name,picture},%s}",
                 REACTION_FIELDS,
                 config.commentLimit(),
                 REACTION_FIELDS
@@ -168,6 +170,17 @@ public class FacebookClient {
                 config.feedLimit()
         );
         return withAccessToken(url);
+    }
+
+    private CommentAuthor parseCommentAuthor(JsonNode fromNode) {
+        if (fromNode == null || fromNode.isMissingNode() || fromNode.isNull()) {
+            return CommentAuthor.UNKNOWN;
+        }
+        return new CommentAuthor(
+                fromNode.path("id").asText(""),
+                fromNode.path("name").asText(""),
+                fromNode.path("picture").path("data").path("url").asText("")
+        );
     }
 
     public PageRatingSummary fetchPageRatingSummary() {

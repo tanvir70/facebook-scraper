@@ -2,6 +2,7 @@ package com.fbscraper.web;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
+import com.fbscraper.model.CommentAuthor;
 import com.fbscraper.model.FacebookComment;
 import com.fbscraper.model.FacebookPost;
 import com.fbscraper.model.FacebookReview;
@@ -29,7 +30,9 @@ class LocalWebServerTest {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
         FacebookComment comment = new FacebookComment(
-                "c1", "Awful support", now, new ReactionSummary(2, 1, 0, 0, 0, 0, 0, 1)
+                "c1", "Awful support", now,
+                new CommentAuthor("user_1", "Ada Customer", "https://example.com/ada.jpg"),
+                new ReactionSummary(2, 1, 0, 0, 0, 0, 0, 1)
         );
         FacebookPost post = new FacebookPost(
                 "p1", "Support", now, List.of(comment), new ReactionSummary(5, 2, 0, 1, 0, 0, 0, 2)
@@ -71,6 +74,7 @@ class LocalWebServerTest {
                     "\"totalReactions\":5",
                     "\"totalCommentReactions\":2",
                     "\"commentReactionTotals\"",
+                    "\"author\":{\"id\":\"user_1\",\"name\":\"Ada Customer\"",
                     "\"totalReviews\":1",
                     "\"care\":1",
                     "\"angry\":2"
