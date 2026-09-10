@@ -1675,12 +1675,29 @@
             wrapper.appendChild(fallback);
         }
 
+        const isIg = currentPlatform === 'instagram';
         const details = document.createElement('div');
         const name = document.createElement('div');
         name.className = 'author-name';
-        name.textContent = author.name || author.username || (author.id ? `User ${author.id}` : 'Anonymous');
+
+        const rawHandle = author.username || author.name || '';
+        if (isIg && rawHandle && rawHandle !== 'Instagram User' && rawHandle !== 'Anonymous') {
+            const cleanHandle = rawHandle.replace(/^@/, '');
+            const link = document.createElement('a');
+            link.href = `https://www.instagram.com/${cleanHandle}/`;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = `@${cleanHandle}`;
+            link.style.color = 'inherit';
+            link.style.textDecoration = 'none';
+            link.title = `View @${cleanHandle} on Instagram`;
+            name.appendChild(link);
+        } else {
+            name.textContent = author.name || author.username || (author.id ? `User ${author.id}` : 'Anonymous');
+        }
         details.appendChild(name);
-        if (author.id) {
+
+        if (!isIg && author.id) {
             const id = document.createElement('div');
             id.className = 'author-id';
             id.textContent = `ID: ${author.id}`;
