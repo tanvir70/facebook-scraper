@@ -1,5 +1,6 @@
-package com.fbscraper.client;
+package com.fbscraper.client.ig;
 
+import com.fbscraper.client.fb.FacebookClient;
 import com.fbscraper.model.instagram.InstagramComment;
 import com.fbscraper.model.instagram.InstagramMedia;
 import com.fbscraper.model.instagram.InstagramUser;

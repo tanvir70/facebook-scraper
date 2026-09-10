@@ -877,6 +877,14 @@
             border-radius: 999px;
             color: #334155;
         }
+        .reactor-chip a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .reactor-chip a:hover {
+            color: #1877f2;
+            text-decoration: underline;
+        }
         .post-reactors-details {
             margin-top: 6px;
             font-size: 11px;
@@ -1227,6 +1235,32 @@
             syncBtn.style.background = 'var(--brand)';
         }
 
+        const msgEmptyEl = document.getElementById('messagesEmpty');
+        if (msgEmptyEl) {
+            if (isIg) {
+                msgEmptyEl.innerHTML = `
+                    <strong>No Instagram direct messages loaded</strong>
+                    <div style="margin-top: 6px; color: var(--muted); font-size: 13px;">Click <b>Sync now</b> to extract Instagram Direct conversations.</div>
+                    <div style="margin-top: 14px; font-size: 12px; color: var(--text); text-align: left; max-width: 540px; margin-left: auto; margin-right: auto; line-height: 1.5; background: #fff; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <strong style="display: block; margin-bottom: 6px; color: #d62976;">Instagram Direct Messages Setup Requirements:</strong>
+                        <ol style="margin: 0; padding-left: 18px; color: var(--muted);">
+                            <li style="margin-bottom: 4px;"><strong style="color: var(--text);">Instagram App Setting (Required):</strong> In the IG mobile app, open <i>Settings and privacy &rarr; Messages and story replies &rarr; Message controls &rarr; Connected tools</i>, and toggle <b>"Allow access to messages"</b> to <b>ON</b>.</li>
+                            <li style="margin-bottom: 4px;"><strong style="color: var(--text);">Meta App in Development Mode:</strong> If your Meta App is in Development mode, add your IG account under <i>Roles &rarr; Instagram Testers</i> in developers.facebook.com and accept the invite in the Instagram app (<i>Settings &rarr; Apps and websites &rarr; Tester invites</i>).</li>
+                            <li><strong style="color: var(--text);">Token Permission:</strong> Your Page Access Token must include <code>instagram_manage_messages</code>.</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                msgEmptyEl.innerHTML = `
+                    <strong>No inbox messages loaded</strong>
+                    <div style="margin-top: 6px; color: var(--muted); font-size: 13px;">Click <b>Sync now</b> to extract Facebook Page Messenger conversations.</div>
+                    <p style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+                        Note: Your Page Access Token must have the <code>pages_messaging</code> permission enabled.
+                    </p>
+                `;
+            }
+        }
+
         hideNotice();
 
         if (platformResults[platform]) {
@@ -1513,13 +1547,7 @@
 
             const list = document.createElement('div');
             list.className = 'reactor-chips';
-            post.userReactions.forEach(r => {
-                const chip = document.createElement('span');
-                chip.className = 'reactor-chip';
-                chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
-                if (r.id) chip.title = `ID: ${r.id}`;
-                list.appendChild(chip);
-            });
+            post.userReactions.forEach(r => list.appendChild(createReactorChip(r)));
             reactorsToggle.appendChild(list);
             postCell.appendChild(reactorsToggle);
         }
@@ -1628,13 +1656,7 @@
                 if (reply.userReactions && reply.userReactions.length > 0) {
                     const replyReactors = document.createElement('div');
                     replyReactors.className = 'reactor-chips';
-                    reply.userReactions.forEach(r => {
-                        const chip = document.createElement('span');
-                        chip.className = 'reactor-chip';
-                        chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
-                        if (r.id) chip.title = `ID: ${r.id}`;
-                        replyReactors.appendChild(chip);
-                    });
+                    reply.userReactions.forEach(r => replyReactors.appendChild(createReactorChip(r)));
                     replyCard.appendChild(replyReactors);
                 }
 
@@ -1668,13 +1690,7 @@
         if (comment.userReactions && comment.userReactions.length > 0) {
             const commentReactors = document.createElement('div');
             commentReactors.className = 'reactor-chips';
-            comment.userReactions.forEach(r => {
-                const chip = document.createElement('span');
-                chip.className = 'reactor-chip';
-                chip.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
-                if (r.id) chip.title = `ID: ${r.id}`;
-                commentReactors.appendChild(chip);
-            });
+            comment.userReactions.forEach(r => commentReactors.appendChild(createReactorChip(r)));
             reactionCell.appendChild(commentReactors);
         }
 
@@ -1684,6 +1700,24 @@
 
         row.append(sentimentCell, messageCell, reactionCell, scoreCell, timeCell);
         return row;
+    }
+
+    function createReactorChip(r = {}) {
+        const chip = document.createElement('span');
+        chip.className = 'reactor-chip';
+        const hasValidId = r.id && r.id !== '0' && r.id !== '';
+        if (hasValidId) {
+            const link = document.createElement('a');
+            link.href = `https://www.facebook.com/${r.id}`;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = `${reactionEmoji(r.type)} ${r.name || r.id}`;
+            link.title = `View ${r.name || 'User'} on Facebook (ID: ${r.id})`;
+            chip.appendChild(link);
+        } else {
+            chip.textContent = `${reactionEmoji(r.type)} ${r.name || 'User'}`;
+        }
+        return chip;
     }
 
     function createAuthor(author = {}, isSmall = false) {
@@ -1749,13 +1783,38 @@
                 details.appendChild(name);
             }
         } else {
-            name.textContent = author.name || author.username || (author.id ? `User ${author.id}` : 'Anonymous');
-            details.appendChild(name);
-            if (!isIg && author.id) {
-                const id = document.createElement('div');
-                id.className = 'author-id';
-                id.textContent = `ID: ${author.id}`;
-                details.appendChild(id);
+            const hasValidId = author.id && author.id !== '0' && author.id !== '';
+            const displayName = author.name || (hasValidId ? `User ${author.id}` : 'Anonymous');
+
+            if (hasValidId) {
+                const link = document.createElement('a');
+                link.href = `https://www.facebook.com/${author.id}`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = displayName;
+                link.title = `View ${displayName} on Facebook`;
+                name.appendChild(link);
+                details.appendChild(name);
+
+                const handleDiv = document.createElement('div');
+                handleDiv.className = 'author-handle';
+                const idLink = document.createElement('a');
+                idLink.href = `https://www.facebook.com/${author.id}`;
+                idLink.target = '_blank';
+                idLink.rel = 'noopener noreferrer';
+                idLink.textContent = `fb.com/${author.id}`;
+                idLink.title = `View Facebook Profile (${author.id})`;
+                handleDiv.appendChild(idLink);
+                details.appendChild(handleDiv);
+            } else {
+                name.textContent = displayName;
+                details.appendChild(name);
+                if (displayName === 'Anonymous') {
+                    const privateNote = document.createElement('div');
+                    privateNote.className = 'author-id';
+                    privateNote.textContent = 'Private / Restricted';
+                    details.appendChild(privateNote);
+                }
             }
         }
         wrapper.appendChild(details);
