@@ -1,11 +1,11 @@
 package com.fbscraper.client;
 
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.Conversation;
-import com.fbscraper.model.Message;
-import com.fbscraper.model.PageRatingSummary;
-import com.fbscraper.model.Post;
-import com.fbscraper.model.Review;
+import com.fbscraper.model.facebook.FacebookConversation;
+import com.fbscraper.model.facebook.FacebookMessage;
+import com.fbscraper.model.facebook.FacebookPageRatingSummary;
+import com.fbscraper.model.facebook.FacebookPost;
+import com.fbscraper.model.facebook.FacebookReview;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLSession;
@@ -63,7 +63,11 @@ class FacebookClientTest {
                       "id": "c_1",
                       "message": "Nice test!",
                       "created_time": "2026-07-01T12:05:00+0000",
-                      "from": {"id": "u_commenter_1", "name": "John Smith"},
+                      "from": {
+                        "id": "u_commenter_1",
+                        "name": "John Smith",
+                        "picture": {"data": {"url": "https://example.com/john.jpg"}}
+                      },
                       "reactions": {
                         "data": [{"id": "u_reactor_2", "name": "Amy", "type": "LIKE"}],
                         "summary": {"total_count": 3}
@@ -87,7 +91,7 @@ class FacebookClientTest {
                 """;
 
         FacebookClient.FeedPage page = new FacebookClient(config()).parseFeedPage(json);
-        Post post = page.posts().get(0);
+        FacebookPost post = page.posts().get(0);
 
         assertThat(post.reactions().total()).isEqualTo(9);
         assertThat(post.reactions().care()).isEqualTo(1);
@@ -99,6 +103,8 @@ class FacebookClientTest {
         var comment = post.comments().get(0);
         assertThat(comment.from().name()).isEqualTo("John Smith");
         assertThat(comment.from().id()).isEqualTo("u_commenter_1");
+        assertThat(comment.from().pictureUrl()).isEqualTo("https://example.com/john.jpg");
+        assertThat(comment.from().hasPicture()).isTrue();
         assertThat(comment.userReactions()).hasSize(1);
         assertThat(comment.userReactions().get(0).name()).isEqualTo("Amy");
 
@@ -122,8 +128,8 @@ class FacebookClientTest {
         assertThat(decoded)
                 .contains("/v26.0/123/feed?")
                 .contains("limit=100")
-                .contains("from{id,name}")
-                .contains("comments.limit(75){id,message,created_time,from{id,name},reactions.limit(100){id,name,type}")
+                .contains("from{id,name,picture}")
+                .contains("comments.limit(75){id,message,created_time,from{id,name,picture},reactions.limit(100){id,name,type}")
                 .contains("reactions.type(CARE).limit(0).summary(total_count).as(reaction_care)")
                 .contains("reactions.type(ANGRY).limit(0).summary(total_count).as(reaction_angry)")
                 .contains("access_token=token");
@@ -148,7 +154,7 @@ class FacebookClientTest {
                 """;
         FacebookClient.ReviewPage page = new FacebookClient(config()).parseReviewPage(json);
         assertThat(page.reviews()).hasSize(1);
-        Review review = page.reviews().get(0);
+        FacebookReview review = page.reviews().get(0);
         assertThat(review.reviewer().id()).isEqualTo("u_reviewer_1");
         assertThat(review.reviewer().name()).isEqualTo("Jane Reviewer");
     }
@@ -161,7 +167,7 @@ class FacebookClientTest {
         ));
         FacebookClient client = new FacebookClient(config(), request -> responses.remove());
 
-        List<Post> posts = client.fetchPageFeed();
+        List<FacebookPost> posts = client.fetchPageFeed();
 
         assertThat(posts).hasSize(2);
         assertThat(posts.get(0).id()).isEqualTo("post_1");
@@ -195,7 +201,7 @@ class FacebookClientTest {
                 request -> new FakeResponse(200, "{\"overall_star_rating\":4.8,\"rating_count\":150}")
         );
 
-        PageRatingSummary summary = client.fetchPageRatingSummary();
+        FacebookPageRatingSummary summary = client.fetchPageRatingSummary();
 
         assertThat(summary.overallStarRating()).isEqualTo(4.8);
         assertThat(summary.ratingCount()).isEqualTo(150);
@@ -209,7 +215,7 @@ class FacebookClientTest {
         ));
         FacebookClient client = new FacebookClient(config(), request -> responses.remove());
 
-        List<Review> reviews = client.fetchPageReviews();
+        List<FacebookReview> reviews = client.fetchPageReviews();
 
         assertThat(reviews).hasSize(2);
         assertThat(reviews.get(0).isPositiveRecommendation()).isTrue();
@@ -264,7 +270,7 @@ class FacebookClientTest {
 
         FacebookClient.ConversationPage page = new FacebookClient(config()).parseConversationsPage(json);
         assertThat(page.conversations()).hasSize(1);
-        Conversation conv = page.conversations().get(0);
+        FacebookConversation conv = page.conversations().get(0);
         assertThat(conv.id()).isEqualTo("t_100");
         assertThat(conv.participants()).hasSize(2);
         assertThat(conv.participants().get(0).name()).isEqualTo("Alice User");
@@ -292,7 +298,7 @@ class FacebookClientTest {
                 }
                 """;
         FacebookClient client = new FacebookClient(config(), request -> new FakeResponse(400, permissionError));
-        List<Conversation> conversations = client.fetchPageConversations();
+        List<FacebookConversation> conversations = client.fetchPageConversations();
         assertThat(conversations).isEmpty();
     }
 

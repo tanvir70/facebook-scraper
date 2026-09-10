@@ -2,19 +2,19 @@ package com.fbscraper;
 
 import com.fbscraper.client.FacebookClient;
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.Comment;
-import com.fbscraper.model.Conversation;
-import com.fbscraper.model.Message;
-import com.fbscraper.model.PageRatingSummary;
-import com.fbscraper.model.Post;
-import com.fbscraper.model.Reaction;
-import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.Review;
-import com.fbscraper.model.SyncResult;
-import com.fbscraper.model.User;
+import com.fbscraper.model.facebook.FacebookComment;
+import com.fbscraper.model.facebook.FacebookConversation;
+import com.fbscraper.model.facebook.FacebookMessage;
+import com.fbscraper.model.facebook.FacebookPageRatingSummary;
+import com.fbscraper.model.facebook.FacebookPost;
+import com.fbscraper.model.facebook.FacebookReaction;
+import com.fbscraper.model.facebook.FacebookReactionSummary;
+import com.fbscraper.model.facebook.FacebookReview;
+import com.fbscraper.model.facebook.FacebookSyncResult;
+import com.fbscraper.model.facebook.FacebookUser;
 import com.fbscraper.sentiment.VaderAnalyzer;
-import com.fbscraper.service.SentimentSyncService;
 import com.fbscraper.service.DataExportService;
+import com.fbscraper.service.SentimentSyncService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,68 +30,68 @@ class AppE2ETest {
     void shouldRunTheDashboardSyncPipeline(@TempDir Path tempDir) {
         AppConfig config = new AppConfig("123", "token", "v26.0", 100, 100, 5, -0.05);
         Instant now = Instant.parse("2026-09-08T08:00:00Z");
-        User commenter = new User("u10", "John Doe");
-        User replier = new User("u11", "Replier Jane");
-        Reaction commentReactor = new Reaction("u12", "Charlie", "LOVE");
-        Reaction postReactor = new Reaction("u13", "Dave", "LIKE");
-        User reviewer = new User("u14", "Reviewer Eve");
+        FacebookUser commenter = new FacebookUser("u10", "John Doe");
+        FacebookUser replier = new FacebookUser("u11", "Replier Jane");
+        FacebookReaction commentReactor = new FacebookReaction("u12", "Charlie", "LOVE");
+        FacebookReaction postReactor = new FacebookReaction("u13", "Dave", "LIKE");
+        FacebookUser reviewer = new FacebookUser("u14", "Reviewer Eve");
 
-        Comment reply = new Comment("r1", "I disagree, it was okay", now, ReactionSummary.empty(), replier, List.of(), List.of());
+        FacebookComment reply = new FacebookComment("r1", "I disagree, it was okay", now, FacebookReactionSummary.empty(), replier, List.of(), List.of());
 
-        Comment comment = new Comment(
+        FacebookComment comment = new FacebookComment(
                 "c1",
                 "This service is horrible",
                 now,
-                new ReactionSummary(3, 1, 0, 1, 0, 0, 0, 1),
+                new FacebookReactionSummary(3, 1, 0, 1, 0, 0, 0, 1),
                 commenter,
                 List.of(reply),
                 List.of(commentReactor)
         );
-        Post post = new Post(
+        FacebookPost post = new FacebookPost(
                 "p1",
                 "Support update",
                 now,
                 List.of(comment),
-                new ReactionSummary(10, 4, 1, 1, 1, 0, 1, 2),
+                new FacebookReactionSummary(10, 4, 1, 1, 1, 0, 1, 2),
                 List.of(postReactor)
         );
-        Review review = new Review(now, "negative", "Very poor support", 2, true, reviewer);
-        User customer = new User("u1", "Bob Customer");
-        User page = new User("123", "Support Page");
-        Message customerMsg = new Message("m1", "My order is terribly broken!", now, customer, List.of(page));
-        Message pageMsg = new Message("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
-        Conversation conversation = new Conversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
+        FacebookReview review = new FacebookReview(now, "negative", "Very poor support", 2, true, reviewer);
+        FacebookUser customer = new FacebookUser("u1", "Bob Customer");
+        FacebookUser page = new FacebookUser("123", "Support Page");
+        FacebookMessage customerMsg = new FacebookMessage("m1", "My order is terribly broken!", now, customer, List.of(page));
+        FacebookMessage pageMsg = new FacebookMessage("m2", "We apologize for the inconvenience", now.plusSeconds(60), page, List.of(customer));
+        FacebookConversation conversation = new FacebookConversation("t1", now.plusSeconds(60), List.of(customer, page), List.of(customerMsg, pageMsg));
 
         FacebookClient client = new FacebookClient(config, request -> {
             throw new AssertionError("The test client must not make HTTP calls");
         }) {
             @Override
-            public List<Post> fetchPageFeed() {
+            public List<FacebookPost> fetchPageFeed() {
                 return List.of(post);
             }
 
             @Override
-            public PageRatingSummary fetchPageRatingSummary() {
-                return new PageRatingSummary(3.8, 42);
+            public FacebookPageRatingSummary fetchPageRatingSummary() {
+                return new FacebookPageRatingSummary(3.8, 42);
             }
 
             @Override
-            public List<Review> fetchPageReviews() {
+            public List<FacebookReview> fetchPageReviews() {
                 return List.of(review);
             }
 
             @Override
-            public List<Conversation> fetchPageConversations() {
+            public List<FacebookConversation> fetchPageConversations() {
                 return List.of(conversation);
             }
         };
 
-        SyncResult result = new SentimentSyncService(
+        FacebookSyncResult result = new SentimentSyncService(
                 config,
                 client,
                 VaderAnalyzer.createDefault(),
                 new DataExportService(tempDir)
-        ).sync();
+        ).syncFacebook();
 
         assertThat(result.totalPosts()).isEqualTo(1);
         assertThat(result.totalComments()).isEqualTo(1);

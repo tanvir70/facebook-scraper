@@ -1,10 +1,10 @@
 package com.fbscraper.client;
 
 import com.fbscraper.config.AppConfig;
-import com.fbscraper.model.Conversation;
-import com.fbscraper.model.PageRatingSummary;
-import com.fbscraper.model.Post;
-import com.fbscraper.model.Review;
+import com.fbscraper.model.facebook.FacebookConversation;
+import com.fbscraper.model.facebook.FacebookPageRatingSummary;
+import com.fbscraper.model.facebook.FacebookPost;
+import com.fbscraper.model.facebook.FacebookReview;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -19,13 +19,13 @@ import java.util.List;
 @Component
 public class FacebookClient {
 
-    public record FeedPage(List<Post> posts, String nextUrl) {
+    public record FeedPage(List<FacebookPost> posts, String nextUrl) {
     }
 
-    public record ReviewPage(List<Review> reviews, String nextUrl) {
+    public record ReviewPage(List<FacebookReview> reviews, String nextUrl) {
     }
 
-    public record ConversationPage(List<Conversation> conversations, String nextUrl) {
+    public record ConversationPage(List<FacebookConversation> conversations, String nextUrl) {
     }
 
     @FunctionalInterface
@@ -64,10 +64,10 @@ public class FacebookClient {
         this.parser = parser;
     }
 
-    public List<Post> fetchPageFeed() {
+    public List<FacebookPost> fetchPageFeed() {
         validateCredentials();
 
-        List<Post> allPosts = new ArrayList<>();
+        List<FacebookPost> allPosts = new ArrayList<>();
         String currentUrl = buildFeedUrl();
         int pageCount = 0;
 
@@ -106,9 +106,9 @@ public class FacebookClient {
         return allPosts;
     }
 
-    public PageRatingSummary fetchPageRatingSummary() {
+    public FacebookPageRatingSummary fetchPageRatingSummary() {
         if (!credentialsPresent()) {
-            return PageRatingSummary.EMPTY;
+            return FacebookPageRatingSummary.EMPTY;
         }
 
         String url = withAccessToken(GraphUrlBuilder.buildRatingSummaryUrl(config));
@@ -116,21 +116,21 @@ public class FacebookClient {
         try {
             HttpResponse<String> response = sendGet(url, Duration.ofSeconds(15));
             if (response.statusCode() != 200) {
-                return PageRatingSummary.EMPTY;
+                return FacebookPageRatingSummary.EMPTY;
             }
             return parser.parseRatingSummary(response.body());
         } catch (Exception e) {
             System.err.println("[FacebookClient] Could not fetch Page rating summary: " + e.getMessage());
-            return PageRatingSummary.EMPTY;
+            return FacebookPageRatingSummary.EMPTY;
         }
     }
 
-    public List<Review> fetchPageReviews() {
+    public List<FacebookReview> fetchPageReviews() {
         if (!credentialsPresent()) {
             return List.of();
         }
 
-        List<Review> allReviews = new ArrayList<>();
+        List<FacebookReview> allReviews = new ArrayList<>();
         String currentUrl = withAccessToken(GraphUrlBuilder.buildReviewsUrl(config));
         int pageCount = 0;
 
@@ -161,12 +161,12 @@ public class FacebookClient {
         return allReviews;
     }
 
-    public List<Conversation> fetchPageConversations() {
+    public List<FacebookConversation> fetchPageConversations() {
         if (!credentialsPresent()) {
             return List.of();
         }
 
-        List<Conversation> allConversations = new ArrayList<>();
+        List<FacebookConversation> allConversations = new ArrayList<>();
         String currentUrl = buildConversationsUrl();
         int pageCount = 0;
 

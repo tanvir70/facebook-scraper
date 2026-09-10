@@ -1,8 +1,8 @@
 package com.fbscraper.client;
 
-import com.fbscraper.model.Conversation;
-import com.fbscraper.model.PageRatingSummary;
-import com.fbscraper.model.Post;
+import com.fbscraper.model.facebook.FacebookConversation;
+import com.fbscraper.model.facebook.FacebookPageRatingSummary;
+import com.fbscraper.model.facebook.FacebookPost;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +31,7 @@ class GraphResponseParserTest {
                         "id": "c_1",
                         "message": "Nice one",
                         "created_time": "2026-07-01T10:05:00+0000",
-                        "from": {"id": "u2", "name": "Bob"}
+                        "from": {"id": "u2", "name": "Bob", "picture": {"data": {"url": "https://example.com/bob.jpg"}}}
                       }]
                     }
                   }],
@@ -41,25 +41,27 @@ class GraphResponseParserTest {
 
         FacebookClient.FeedPage page = parser.parseFeedPage(json);
         assertThat(page.posts()).hasSize(1);
-        Post post = page.posts().get(0);
+        FacebookPost post = page.posts().get(0);
         assertThat(post.id()).isEqualTo("p_10");
         assertThat(post.message()).isEqualTo("Hello world");
         assertThat(post.reactions().total()).isEqualTo(5);
         assertThat(post.userReactions()).hasSize(1);
         assertThat(post.comments()).hasSize(1);
         assertThat(post.comments().get(0).from().name()).isEqualTo("Bob");
+        assertThat(post.comments().get(0).from().pictureUrl()).isEqualTo("https://example.com/bob.jpg");
+        assertThat(post.comments().get(0).from().hasPicture()).isTrue();
         assertThat(page.nextUrl()).isEqualTo("https://graph.facebook.com/next-cursor");
     }
 
     @Test
     void shouldParseRatingSummary() {
         String json = "{\"overall_star_rating\":4.7,\"rating_count\":200}";
-        PageRatingSummary summary = parser.parseRatingSummary(json);
+        FacebookPageRatingSummary summary = parser.parseRatingSummary(json);
         assertThat(summary.overallStarRating()).isEqualTo(4.7);
         assertThat(summary.ratingCount()).isEqualTo(200);
 
-        PageRatingSummary fallback = parser.parseRatingSummary("invalid json");
-        assertThat(fallback).isEqualTo(PageRatingSummary.EMPTY);
+        FacebookPageRatingSummary fallback = parser.parseRatingSummary("invalid json");
+        assertThat(fallback).isEqualTo(FacebookPageRatingSummary.EMPTY);
     }
 
     @Test
@@ -109,7 +111,7 @@ class GraphResponseParserTest {
 
         FacebookClient.ConversationPage page = parser.parseConversationsPage(json);
         assertThat(page.conversations()).hasSize(1);
-        Conversation conv = page.conversations().get(0);
+        FacebookConversation conv = page.conversations().get(0);
         assertThat(conv.id()).isEqualTo("t_99");
         assertThat(conv.messages()).hasSize(1);
         assertThat(conv.messages().get(0).message()).isEqualTo("Hey");

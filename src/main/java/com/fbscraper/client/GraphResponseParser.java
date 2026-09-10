@@ -3,16 +3,16 @@ package com.fbscraper.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fbscraper.model.Attachment;
-import com.fbscraper.model.Comment;
-import com.fbscraper.model.Conversation;
-import com.fbscraper.model.Message;
-import com.fbscraper.model.PageRatingSummary;
-import com.fbscraper.model.Post;
-import com.fbscraper.model.Reaction;
-import com.fbscraper.model.ReactionSummary;
-import com.fbscraper.model.Review;
-import com.fbscraper.model.User;
+import com.fbscraper.model.facebook.FacebookAttachment;
+import com.fbscraper.model.facebook.FacebookComment;
+import com.fbscraper.model.facebook.FacebookConversation;
+import com.fbscraper.model.facebook.FacebookMessage;
+import com.fbscraper.model.facebook.FacebookPageRatingSummary;
+import com.fbscraper.model.facebook.FacebookPost;
+import com.fbscraper.model.facebook.FacebookReaction;
+import com.fbscraper.model.facebook.FacebookReactionSummary;
+import com.fbscraper.model.facebook.FacebookReview;
+import com.fbscraper.model.facebook.FacebookUser;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -43,23 +43,23 @@ public class GraphResponseParser {
     }
 
     public FacebookClient.FeedPage parseFeedPage(String json) {
-        List<Post> posts = new ArrayList<>();
+        List<FacebookPost> posts = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode data = root.path("data");
             if (data.isArray()) {
                 for (JsonNode postNode : data) {
-                    List<Comment> comments = new ArrayList<>();
+                    List<FacebookComment> comments = new ArrayList<>();
                     JsonNode commentData = postNode.path("comments").path("data");
                     if (commentData.isArray()) {
                         for (JsonNode commentNode : commentData) {
                             comments.add(parseComment(commentNode));
                         }
                     }
-                    List<Reaction> userReactions = parseUserReactions(postNode.path("reactions").path("data"));
+                    List<FacebookReaction> userReactions = parseUserReactions(postNode.path("reactions").path("data"));
 
-                    posts.add(new Post(
+                    posts.add(new FacebookPost(
                             postNode.path("id").asText(""),
                             postNode.path("message").asText(""),
                             parseInstant(postNode.path("created_time").asText("")),
@@ -75,20 +75,20 @@ public class GraphResponseParser {
         }
     }
 
-    public PageRatingSummary parseRatingSummary(String json) {
+    public FacebookPageRatingSummary parseRatingSummary(String json) {
         try {
             JsonNode root = objectMapper.readTree(json);
-            return new PageRatingSummary(
+            return new FacebookPageRatingSummary(
                     root.path("overall_star_rating").asDouble(0.0),
                     root.path("rating_count").asInt(0)
             );
         } catch (Exception e) {
-            return PageRatingSummary.EMPTY;
+            return FacebookPageRatingSummary.EMPTY;
         }
     }
 
     public FacebookClient.ReviewPage parseReviewPage(String json) {
-        List<Review> reviews = new ArrayList<>();
+        List<FacebookReview> reviews = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
@@ -96,8 +96,8 @@ public class GraphResponseParser {
             if (data.isArray()) {
                 for (JsonNode item : data) {
                     String reviewText = item.path("review_text").asText("");
-                    User reviewer = parseUser(item.path("reviewer"));
-                    reviews.add(new Review(
+                    FacebookUser reviewer = parseUser(item.path("reviewer"));
+                    reviews.add(new FacebookReview(
                             parseInstant(item.path("created_time").asText("")),
                             item.hasNonNull("recommendation_type")
                                     ? item.path("recommendation_type").asText("")
@@ -116,16 +116,16 @@ public class GraphResponseParser {
     }
 
     public FacebookClient.ConversationPage parseConversationsPage(String json) {
-        List<Conversation> conversations = new ArrayList<>();
+        List<FacebookConversation> conversations = new ArrayList<>();
 
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode data = root.path("data");
             if (data.isArray()) {
                 for (JsonNode convNode : data) {
-                    List<User> participants = parseParticipants(convNode.path("participants").path("data"));
-                    List<Message> messages = parseMessages(convNode.path("messages").path("data"));
-                    conversations.add(new Conversation(
+                    List<FacebookUser> participants = parseParticipants(convNode.path("participants").path("data"));
+                    List<FacebookMessage> messages = parseMessages(convNode.path("messages").path("data"));
+                    conversations.add(new FacebookConversation(
                             convNode.path("id").asText(""),
                             parseInstant(convNode.path("updated_time").asText("")),
                             participants,
@@ -152,15 +152,15 @@ public class GraphResponseParser {
         }
     }
 
-    private Comment parseComment(JsonNode commentNode) {
+    private FacebookComment parseComment(JsonNode commentNode) {
         String id = commentNode.path("id").asText("");
         String message = commentNode.path("message").asText("");
         Instant createdTime = parseInstant(commentNode.path("created_time").asText(""));
-        ReactionSummary reactions = parseReactions(commentNode);
-        User from = parseUser(commentNode.path("from"));
-        List<Reaction> userReactions = parseUserReactions(commentNode.path("reactions").path("data"));
+        FacebookReactionSummary reactions = parseReactions(commentNode);
+        FacebookUser from = parseUser(commentNode.path("from"));
+        List<FacebookReaction> userReactions = parseUserReactions(commentNode.path("reactions").path("data"));
 
-        List<Comment> replies = new ArrayList<>();
+        List<FacebookComment> replies = new ArrayList<>();
         JsonNode replyData = commentNode.path("comments").path("data");
         if (replyData.isArray()) {
             for (JsonNode replyNode : replyData) {
@@ -168,36 +168,40 @@ public class GraphResponseParser {
             }
         }
 
-        return new Comment(id, message, createdTime, reactions, from, replies, userReactions);
+        return new FacebookComment(id, message, createdTime, reactions, from, replies, userReactions);
     }
 
-    private User parseUser(JsonNode node) {
+    private FacebookUser parseUser(JsonNode node) {
         if (node == null || node.isMissingNode() || node.isNull()) {
-            return User.ANONYMOUS;
+            return FacebookUser.ANONYMOUS;
         }
         String id = node.path("id").asText("");
         String name = node.path("name").asText("");
-        return new User(id, name);
+        JsonNode pictureNode = node.path("picture").path("data").path("url");
+        String pictureUrl = pictureNode.isMissingNode() || pictureNode.isNull()
+                ? null
+                : pictureNode.asText(null);
+        return new FacebookUser(id, name, null, pictureUrl);
     }
 
-    private List<Reaction> parseUserReactions(JsonNode data) {
-        List<Reaction> list = new ArrayList<>();
+    private List<FacebookReaction> parseUserReactions(JsonNode data) {
+        List<FacebookReaction> list = new ArrayList<>();
         if (data != null && data.isArray()) {
             for (JsonNode node : data) {
                 String id = node.path("id").asText("");
                 String name = node.path("name").asText("");
                 String type = node.path("type").asText("LIKE");
-                list.add(new Reaction(id, name, type));
+                list.add(new FacebookReaction(id, name, type));
             }
         }
         return list;
     }
 
-    private List<User> parseParticipants(JsonNode data) {
-        List<User> list = new ArrayList<>();
+    private List<FacebookUser> parseParticipants(JsonNode data) {
+        List<FacebookUser> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                list.add(new User(
+                list.add(new FacebookUser(
                         node.path("id").asText(""),
                         node.path("name").asText(""),
                         node.hasNonNull("email") ? node.path("email").asText("") : null
@@ -207,22 +211,22 @@ public class GraphResponseParser {
         return list;
     }
 
-    private List<Message> parseMessages(JsonNode data) {
-        List<Message> list = new ArrayList<>();
+    private List<FacebookMessage> parseMessages(JsonNode data) {
+        List<FacebookMessage> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
-                User from = null;
+                FacebookUser from = null;
                 if (node.hasNonNull("from")) {
                     JsonNode fromNode = node.get("from");
-                    from = new User(
+                    from = new FacebookUser(
                             fromNode.path("id").asText(""),
                             fromNode.path("name").asText(""),
                             fromNode.hasNonNull("email") ? fromNode.path("email").asText("") : null
                     );
                 }
-                List<User> to = parseParticipants(node.path("to").path("data"));
-                List<Attachment> attachments = parseAttachments(node.path("attachments").path("data"));
-                list.add(new Message(
+                List<FacebookUser> to = parseParticipants(node.path("to").path("data"));
+                List<FacebookAttachment> attachments = parseAttachments(node.path("attachments").path("data"));
+                list.add(new FacebookMessage(
                         node.path("id").asText(""),
                         node.path("message").asText(""),
                         parseInstant(node.path("created_time").asText("")),
@@ -235,8 +239,8 @@ public class GraphResponseParser {
         return list;
     }
 
-    private List<Attachment> parseAttachments(JsonNode data) {
-        List<Attachment> list = new ArrayList<>();
+    private List<FacebookAttachment> parseAttachments(JsonNode data) {
+        List<FacebookAttachment> list = new ArrayList<>();
         if (data.isArray()) {
             for (JsonNode node : data) {
                 String id = node.path("id").asText("");
@@ -271,14 +275,14 @@ public class GraphResponseParser {
                     }
                 }
 
-                list.add(new Attachment(id, mimeType, name, size, url, previewUrl));
+                list.add(new FacebookAttachment(id, mimeType, name, size, url, previewUrl));
             }
         }
         return list;
     }
 
-    private ReactionSummary parseReactions(JsonNode node) {
-        return new ReactionSummary(
+    private FacebookReactionSummary parseReactions(JsonNode node) {
+        return new FacebookReactionSummary(
                 reactionCount(node, "reaction_total", "reactions"),
                 reactionCount(node, "reaction_like", "like"),
                 reactionCount(node, "reaction_love", "love"),

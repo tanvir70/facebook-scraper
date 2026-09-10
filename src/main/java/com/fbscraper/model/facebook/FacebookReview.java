@@ -1,39 +1,32 @@
-package com.fbscraper.model;
+package com.fbscraper.model.facebook;
+
+import com.fbscraper.model.SentimentScore;
 
 import java.time.Instant;
 
-public record Review(
+public record FacebookReview(
         Instant createdTime,
         String recommendationType,
         String reviewText,
         int rating,
         boolean hasReview,
-        User reviewer,
+        FacebookUser reviewer,
         SentimentScore score
 ) {
-    public Review {
-        reviewer = reviewer == null ? User.ANONYMOUS : reviewer;
+    public FacebookReview {
+        hasReview = reviewText != null && !reviewText.isBlank();
+        reviewer = reviewer == null ? FacebookUser.ANONYMOUS : reviewer;
     }
 
-    public Review(
+    public FacebookReview(
             Instant createdTime,
             String recommendationType,
             String reviewText,
             int rating,
             boolean hasReview,
-            User reviewer
+            FacebookUser reviewer
     ) {
         this(createdTime, recommendationType, reviewText, rating, hasReview, reviewer, null);
-    }
-
-    public Review(
-            Instant createdTime,
-            String recommendationType,
-            String reviewText,
-            int rating,
-            boolean hasReview
-    ) {
-        this(createdTime, recommendationType, reviewText, rating, hasReview, User.ANONYMOUS, null);
     }
 
     public boolean isPositiveRecommendation() {
@@ -44,4 +37,3 @@ public record Review(
         return "negative".equalsIgnoreCase(recommendationType);
     }
 }
-

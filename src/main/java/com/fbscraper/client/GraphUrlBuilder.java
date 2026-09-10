@@ -22,13 +22,13 @@ public final class GraphUrlBuilder {
 
     public static String buildFeedUrl(AppConfig config) {
         String nestedCommentsField = String.format(
-                "comments.limit(%d){id,message,created_time,from{id,name},reactions.limit(%d){id,name,type},%s}",
+                "comments.limit(%d){id,message,created_time,from{id,name,picture},reactions.limit(%d){id,name,type},%s}",
                 config.nestedCommentLimit(),
                 config.reactionLimit(),
                 REACTION_FIELDS
         );
         String topLevelCommentsField = String.format(
-                "comments.limit(%d){id,message,created_time,from{id,name},reactions.limit(%d){id,name,type},%s,%s}",
+                "comments.limit(%d){id,message,created_time,from{id,name,picture},reactions.limit(%d){id,name,type},%s,%s}",
                 config.commentLimit(),
                 config.reactionLimit(),
                 REACTION_FIELDS,

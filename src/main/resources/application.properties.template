@@ -10,3 +10,7 @@ fb.conversation-limit=100
 fb.message-limit=100
 fb.max-pages=5
 fb.negative-threshold=-0.05
+
+# Optional: explicitly specify Instagram Business Account ID.
+# If omitted or blank, the app auto-resolves it from fb.page-id.
+fb.ig-account-id=

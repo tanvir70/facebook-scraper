@@ -1,21 +1,23 @@
-# Facebook Scraper
+# Social Monitor (Facebook & Instagram)
 
-A Java 21 Facebook Page monitoring application. It fetches posts, comments, reactions, ratings, and reviews through the Meta Graph API, analyzes comment and review sentiment with VADER, and presents the results in a local browser dashboard.
+A Java 21 social monitoring application for Facebook Pages and Instagram Professional accounts. It fetches posts, media, comments, nested replies, reactions, ratings, reviews, and direct messages through the Meta Graph API, analyzes comment and message sentiment with VADER, and presents the results in a local browser dashboard with a platform switcher.
 
 ## Features
 
-- Cursor pagination for Page posts and reviews.
-- Configurable posts per page, comments per post, nested comments limit, reaction limit, and maximum pages.
-- Detailed commenter user details (`id`, `name`) and full nested comment reply threads with recursive sentiment analysis.
-- Post and comment reactor user details (`id`, `name`, and reaction `type`) alongside reaction aggregates: `LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, and `ANGRY`.
-- Page recommendations and customer reviews with reviewer details (`id`, `name`) and ratings.
-- Page Messenger inbox conversation and direct message extraction with media/file attachments.
-- Local VADER sentiment analysis for comments, nested replies, reviews, and customer messages.
-- A **Sync now** browser UI at `http://localhost:8080`.
-- Separate dashboard tabs for comments (with nested reply threads and author chips), post reactions (with expandable reactor lists), reviews (with reviewer badges), and messages.
-- Comment reactions and reactor details displayed on their individual comment rows.
-- Dedicated JSON data exports (`output/messages.json`, `output/comments.json`, `output/reviews.json`, `output/posts.json`, `output/sync-result.json`).
-- Helpful expired-token errors without storing a Facebook password.
+- **Multi-Platform Support:** Instant switching between **Facebook** and **Instagram** on the web dashboard.
+- **Instagram Media & Comments:** Auto-resolves linked Instagram Business accounts, fetches media items (photos, carousels, reels, videos), comments, and nested replies with username details.
+- **Instagram Direct Messages:** Fetches customer direct message conversations, timestamps, sender badges, and attachments via the Instagram Messaging API.
+- **Cursor pagination:** For Facebook Page posts/reviews and Instagram media/conversations.
+- **Configurable limits:** Posts/media per page, comments per post, nested comments limit, reaction limit, and maximum pages.
+- **Detailed interaction analysis:** Commenter identity (`id`, `name`, `username`) and full nested comment reply threads with recursive sentiment analysis.
+- **Reactions & Likes:** Full 7-reaction breakdown on Facebook (`LIKE`, `LOVE`, `CARE`, `HAHA`, `WOW`, `SAD`, `ANGRY`) with reactor lists, and aggregate Like metrics on Instagram.
+- **Ratings & Reviews:** Facebook Page recommendations and customer reviews with ratings and sentiment.
+- **Local VADER sentiment analysis:** For comments, nested replies, reviews, and customer direct messages.
+- **Sync now browser UI:** At `http://localhost:8080`.
+- **Dedicated JSON data exports:**
+  - Facebook: `output/messages.json`, `output/comments.json`, `output/reviews.json`, `output/post_reactions.json`, `output/sync-result.json`
+  - Instagram: `output/instagram_messages.json`, `output/instagram_comments.json`, `output/instagram_post_reactions.json`, `output/instagram_sync-result.json`
+- **Helpful expired-token errors:** Clear diagnostics when Meta tokens expire.
 
 ## Meta permissions
 
@@ -24,7 +26,10 @@ Generate a Page access token with:
 - `pages_show_list`
 - `pages_read_engagement`
 - `pages_read_user_content`
-- `pages_messaging` (required to read Page inbox conversations, messages, and attachments)
+- `pages_messaging` (required to read Facebook Page inbox conversations)
+- `instagram_basic` (required for Instagram media and profile info)
+- `instagram_manage_comments` (required for Instagram comments and replies)
+- `instagram_manage_messages` (required for Instagram Direct Messages)
 
 Open the [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/), generate a User token with those permissions, then call:
 
@@ -147,23 +152,42 @@ The first request uses `fb.feed-limit`, `fb.comment-limit`, and `fb.conversation
 ```text
 src/main/java/com/fbscraper/
 ├── App.java
-├── client/FacebookClient.java
+├── client/
+│   ├── FacebookClient.java
+│   ├── GraphResponseParser.java
+│   ├── GraphUrlBuilder.java
+│   ├── InstagramClient.java
+│   ├── InstagramResponseParser.java
+│   └── InstagramUrlBuilder.java
 ├── config/AppConfig.java
+├── enums/SentimentLevel.java
 ├── model/
-│   ├── FacebookAttachment.java
-│   ├── FacebookConversation.java
-│   ├── FacebookMessage.java
-│   ├── FacebookParticipant.java
-│   ├── FacebookUser.java
-│   ├── FacebookReaction.java
-│   ├── FacebookComment.java
-│   ├── FacebookPost.java
-│   ├── FacebookReview.java
-│   ├── AnalyzedConversation.java
-│   ├── AnalyzedMessage.java
-│   ├── CommentAnalysis.java
-│   ├── PostReactionAnalysis.java
-│   └── MessageSentimentSummary.java
+│   ├── MessageSentimentSummary.java
+│   ├── SentimentScore.java
+│   ├── facebook/
+│   │   ├── FacebookAttachment.java
+│   │   ├── FacebookComment.java
+│   │   ├── FacebookCommentAnalysis.java
+│   │   ├── FacebookConversation.java
+│   │   ├── FacebookMessage.java
+│   │   ├── FacebookPageRatingSummary.java
+│   │   ├── FacebookPost.java
+│   │   ├── FacebookPostReactionAnalysis.java
+│   │   ├── FacebookReaction.java
+│   │   ├── FacebookReactionSummary.java
+│   │   ├── FacebookReview.java
+│   │   ├── FacebookSyncResult.java
+│   │   └── FacebookUser.java
+│   └── instagram/
+│       ├── InstagramAttachment.java
+│       ├── InstagramComment.java
+│       ├── InstagramCommentAnalysis.java
+│       ├── InstagramConversation.java
+│       ├── InstagramMedia.java
+│       ├── InstagramMediaAnalysis.java
+│       ├── InstagramMessage.java
+│       ├── InstagramSyncResult.java
+│       └── InstagramUser.java
 ├── sentiment/VaderAnalyzer.java
 ├── service/
 │   ├── DataExportService.java

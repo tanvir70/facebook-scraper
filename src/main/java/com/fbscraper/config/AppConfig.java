@@ -17,7 +17,8 @@ public record AppConfig(
         @DefaultValue("100") int reactionLimit,
         @DefaultValue("100") int nestedCommentLimit,
         @DefaultValue("5") int maxPages,
-        @DefaultValue("-0.05") double negativeThreshold
+        @DefaultValue("-0.05") double negativeThreshold,
+        @DefaultValue("") String igAccountId
 ) {
     public static final String DEFAULT_API_VERSION = "v26.0";
     public static final int DEFAULT_FEED_LIMIT = 100;
@@ -31,6 +32,23 @@ public record AppConfig(
 
     @org.springframework.boot.context.properties.bind.ConstructorBinding
     public AppConfig {
+        igAccountId = igAccountId == null ? "" : igAccountId.trim();
+    }
+
+    public AppConfig(
+            String pageId,
+            String accessToken,
+            String apiVersion,
+            int feedLimit,
+            int commentLimit,
+            int conversationLimit,
+            int messageLimit,
+            int reactionLimit,
+            int nestedCommentLimit,
+            int maxPages,
+            double negativeThreshold
+    ) {
+        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, reactionLimit, nestedCommentLimit, maxPages, negativeThreshold, "");
     }
 
     public AppConfig(
@@ -42,7 +60,11 @@ public record AppConfig(
             int maxPages,
             double negativeThreshold
     ) {
-        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold);
+        this(pageId, accessToken, apiVersion, feedLimit, commentLimit, DEFAULT_CONVERSATION_LIMIT, DEFAULT_MESSAGE_LIMIT, DEFAULT_REACTION_LIMIT, DEFAULT_NESTED_COMMENT_LIMIT, maxPages, negativeThreshold, "");
+    }
+
+    public boolean hasInstagramAccountId() {
+        return igAccountId != null && !igAccountId.isBlank();
     }
 
     public static AppConfig fromProperties(Properties props) {
@@ -62,8 +84,9 @@ public record AppConfig(
         int nestedCommentLimit = parseIntOrDefault(props.getProperty("fb.nested_comment.limit", props.getProperty("fb.nested-comment-limit")), DEFAULT_NESTED_COMMENT_LIMIT);
         int maxPages = parseIntOrDefault(props.getProperty("fb.max.pages", props.getProperty("fb.max-pages")), DEFAULT_MAX_PAGES);
         double negativeThreshold = parseDoubleOrDefault(props.getProperty("app.negative.threshold", props.getProperty("fb.negative-threshold")), DEFAULT_NEGATIVE_THRESHOLD);
+        String igAccountId = props.getProperty("ig.account.id", props.getProperty("ig.account-id", props.getProperty("fb.ig.account.id", props.getProperty("fb.ig-account-id", "")))).trim();
 
-        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, reactionLimit, nestedCommentLimit, maxPages, negativeThreshold);
+        return new AppConfig(pageId, accessToken, apiVersion, feedLimit, commentLimit, conversationLimit, messageLimit, reactionLimit, nestedCommentLimit, maxPages, negativeThreshold, igAccountId);
     }
 
     private static int parseIntOrDefault(String str, int defaultVal) {

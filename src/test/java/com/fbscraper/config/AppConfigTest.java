@@ -24,6 +24,8 @@ class AppConfigTest {
         assertThat(config.messageLimit()).isEqualTo(100);
         assertThat(config.reactionLimit()).isEqualTo(100);
         assertThat(config.nestedCommentLimit()).isEqualTo(100);
+        assertThat(config.igAccountId()).isEmpty();
+        assertThat(config.hasInstagramAccountId()).isFalse();
     }
 
     @Test
@@ -40,6 +42,7 @@ class AppConfigTest {
         props.setProperty("fb.nested_comment.limit", "25");
         props.setProperty("fb.max.pages", "10");
         props.setProperty("app.negative.threshold", "-0.15");
+        props.setProperty("fb.ig-account-id", "178414000123");
 
         AppConfig config = AppConfig.fromProperties(props);
 
@@ -54,5 +57,7 @@ class AppConfigTest {
         assertThat(config.nestedCommentLimit()).isEqualTo(25);
         assertThat(config.maxPages()).isEqualTo(10);
         assertThat(config.negativeThreshold()).isEqualTo(-0.15);
+        assertThat(config.igAccountId()).isEqualTo("178414000123");
+        assertThat(config.hasInstagramAccountId()).isTrue();
     }
 }

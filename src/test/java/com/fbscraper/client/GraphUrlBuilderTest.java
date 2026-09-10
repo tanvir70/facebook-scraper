@@ -23,6 +23,7 @@ class GraphUrlBuilderTest {
         String decoded = URLDecoder.decode(url, StandardCharsets.UTF_8);
         assertThat(decoded).contains("comments.limit(25)");
         assertThat(decoded).contains("comments.limit(100)");
+        assertThat(decoded).contains("from{id,name,picture}");
         assertThat(decoded).contains("reaction_like");
     }
 
