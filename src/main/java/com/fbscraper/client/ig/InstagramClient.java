@@ -182,9 +182,9 @@ public class InstagramClient {
                 if (response.statusCode() != 200) {
                     String body = response.body();
 
-                    // If primary IG user endpoint returns unsupported get request (code 100 subcode 33), try the Page endpoint with platform=instagram
-                    if (pageCount == 1 && !triedFallback && isUnsupportedGetRequest(body)) {
-                        System.out.println("[InstagramClient] Direct conversation endpoint returned unsupported get request; attempting Page conversations with platform=instagram fallback...");
+                    // If primary endpoint fails on first attempt, try the alternative Page endpoint with platform=instagram
+                    if (pageCount == 1 && !triedFallback) {
+                        System.out.println("[InstagramClient] Direct conversation endpoint failed [HTTP " + response.statusCode() + "]; attempting Page conversations with platform=instagram fallback...");
                         triedFallback = true;
                         pageCount = 0;
                         currentUrl = InstagramUrlBuilder.buildPageConversationsWithIgUrl(config);
