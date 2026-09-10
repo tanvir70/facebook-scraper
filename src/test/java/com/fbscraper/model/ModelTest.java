@@ -105,6 +105,10 @@ class ModelTest {
         assertThat(user.name()).isEqualTo("Alice Wonderland");
         assertThat(user.displayName()).isEqualTo("Alice Wonderland");
 
+        User pictured = new User("u101", "Bob Builder", null, "https://example.com/bob.jpg");
+        assertThat(pictured.pictureUrl()).isEqualTo("https://example.com/bob.jpg");
+        assertThat(pictured.hasPicture()).isTrue();
+
         User anon = new User("", "");
         assertThat(anon.displayName()).isEqualTo("Anonymous");
 

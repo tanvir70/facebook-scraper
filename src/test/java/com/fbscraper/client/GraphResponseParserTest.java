@@ -31,7 +31,7 @@ class GraphResponseParserTest {
                         "id": "c_1",
                         "message": "Nice one",
                         "created_time": "2026-07-01T10:05:00+0000",
-                        "from": {"id": "u2", "name": "Bob"}
+                        "from": {"id": "u2", "name": "Bob", "picture": {"data": {"url": "https://example.com/bob.jpg"}}}
                       }]
                     }
                   }],
@@ -48,6 +48,7 @@ class GraphResponseParserTest {
         assertThat(post.userReactions()).hasSize(1);
         assertThat(post.comments()).hasSize(1);
         assertThat(post.comments().get(0).from().name()).isEqualTo("Bob");
+        assertThat(post.comments().get(0).from().pictureUrl()).isEqualTo("https://example.com/bob.jpg");
         assertThat(page.nextUrl()).isEqualTo("https://graph.facebook.com/next-cursor");
     }
 

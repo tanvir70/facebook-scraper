@@ -177,7 +177,11 @@ public class GraphResponseParser {
         }
         String id = node.path("id").asText("");
         String name = node.path("name").asText("");
-        return new User(id, name);
+        JsonNode pictureNode = node.path("picture").path("data").path("url");
+        String pictureUrl = pictureNode.isMissingNode() || pictureNode.isNull()
+                ? null
+                : pictureNode.asText(null);
+        return new User(id, name, null, pictureUrl);
     }
 
     private List<Reaction> parseUserReactions(JsonNode data) {
